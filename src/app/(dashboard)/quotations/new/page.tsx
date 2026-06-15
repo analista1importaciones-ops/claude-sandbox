@@ -538,7 +538,7 @@ export default function NewQuotationPage() {
               <div className="text-blue-300 text-xs mt-0.5">Transporte + Gastos locales + Otros</div>
             </div>
             <div className="text-right">
-              <div className="text-3xl font-bold text-gtl-orange font-mono">${grandTotal.toFixed(2)}</div>
+              <div className="text-3xl font-bold text-white font-mono">${grandTotal.toFixed(2)}</div>
               <div className="text-blue-300 text-xs mt-0.5">{currency}</div>
             </div>
           </div>

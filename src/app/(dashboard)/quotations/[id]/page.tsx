@@ -108,7 +108,7 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
             <div className="text-white font-semibold text-sm uppercase tracking-wide">Total General</div>
             <div className="text-blue-300 text-xs mt-0.5">{q.currency} · Todos los bloques incluidos</div>
           </div>
-          <div className="text-3xl font-bold text-gtl-orange font-mono">${Number(q.grandTotal).toFixed(2)}</div>
+          <div className="text-3xl font-bold text-white font-mono">${Number(q.grandTotal).toFixed(2)}</div>
         </div>
       </div>
 
