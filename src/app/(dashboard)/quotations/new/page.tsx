@@ -104,6 +104,24 @@ const PERMISOS = [
   'Zoosanitario',
 ]
 
+function buildIntlTemplate(incoterm: string): LineItem[] {
+  if (incoterm === 'CIF') return []
+  if (incoterm === 'EXW' || incoterm === 'FCA') {
+    return [
+      { label: 'Ocean Freight', amount: 0 },
+      { label: 'Overlength', amount: 0 },
+      { label: 'CFS', amount: 0 },
+      { label: 'Doc Fee', amount: 0 },
+      { label: 'VGM', amount: 0 },
+      { label: 'Manifest', amount: 0 },
+      { label: 'Customs Clearance', amount: 0 },
+      { label: 'Gate In', amount: 0 },
+    ]
+  }
+  // FOB, DAP, DDP, CPT, CIP
+  return [{ label: 'Ocean Freight', amount: 0 }]
+}
+
 function buildOtherCharges(mode: string, cbm: number, city: string, fobValue: number, permiso: string): LineItem[] {
   const items: LineItem[] = [
     { label: 'Agente de Aduana / Despacho Aduanero', amount: calcAgenteAduana(mode) },
@@ -228,6 +246,20 @@ export default function NewQuotationPage() {
   const isLCL = mode === 'LCL'
   const isAIR = mode === 'AIR'
   const isFCL = mode === 'FCL20' || mode === 'FCL40' || mode === 'FCL40HC'
+  const isCIF = incoterm === 'CIF'
+
+  function handleIncotermChange(newIncoterm: string) {
+    setIncoterm(newIncoterm)
+    if (!rateId) {
+      // Only reset Block 1 when not loaded from a rate
+      setIntlCharges(buildIntlTemplate(newIncoterm))
+    }
+    if (newIncoterm === 'CIF') {
+      setLocalCharges([])
+    } else if (incoterm === 'CIF') {
+      loadGtlConfigs()
+    }
+  }
 
   const intlTotal = intlCharges.reduce((s, r) => s + (Number(r.amount) || 0), 0)
   const localTotal = localCharges.reduce((s, r) => s + (Number(r.amount) || 0), 0)
@@ -392,7 +424,7 @@ export default function NewQuotationPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Incoterm</label>
-              <select value={incoterm} onChange={e => setIncoterm(e.target.value)}
+              <select value={incoterm} onChange={e => handleIncotermChange(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy bg-white">
                 {INCOTEMS.map(i => <option key={i} value={i}>{i}</option>)}
               </select>
@@ -463,32 +495,43 @@ export default function NewQuotationPage() {
           </div>
         </div>
 
-        {/* Bloque 1 */}
-        <ChargesBlock
-          title="Bloque 1 — Transporte Internacional"
-          subtitle={`por ${isFCL ? 'contenedor' : isAIR ? 'kg/kg' : 'CBM'}`}
-          items={intlCharges}
-          setItems={setIntlCharges}
-          total={intlTotal}
-          currency={currency}
-          onUpdate={(i, f, v) => updateLine(intlCharges, setIntlCharges, i, f, v)}
-          onAdd={() => addLine(intlCharges, setIntlCharges)}
-          onRemove={i => removeLine(intlCharges, setIntlCharges, i)}
-        />
+        {/* Bloque 1 — oculto si CIF */}
+        {!isCIF && (
+          <ChargesBlock
+            title="Bloque 1 — Transporte Internacional"
+            subtitle={`por ${isFCL ? 'contenedor' : isAIR ? 'kg/kg' : 'CBM'}`}
+            items={intlCharges}
+            setItems={setIntlCharges}
+            total={intlTotal}
+            currency={currency}
+            onUpdate={(i, f, v) => updateLine(intlCharges, setIntlCharges, i, f, v)}
+            onAdd={() => addLine(intlCharges, setIntlCharges)}
+            onRemove={i => removeLine(intlCharges, setIntlCharges, i)}
+          />
+        )}
 
-        {/* Bloque 2 */}
-        <ChargesBlock
-          title="Bloque 2 — Gastos Locales GTL"
-          subtitle="fijos por operación"
-          items={localCharges}
-          setItems={setLocalCharges}
-          total={localTotal}
-          currency={currency}
-          accent="orange"
-          onUpdate={(i, f, v) => updateLine(localCharges, setLocalCharges, i, f, v)}
-          onAdd={() => addLine(localCharges, setLocalCharges)}
-          onRemove={i => removeLine(localCharges, setLocalCharges, i)}
-        />
+        {/* Bloque 2 — oculto si CIF */}
+        {!isCIF && (
+          <ChargesBlock
+            title="Bloque 2 — Gastos Locales GTL"
+            subtitle="fijos por operación"
+            items={localCharges}
+            setItems={setLocalCharges}
+            total={localTotal}
+            currency={currency}
+            accent="orange"
+            onUpdate={(i, f, v) => updateLine(localCharges, setLocalCharges, i, f, v)}
+            onAdd={() => addLine(localCharges, setLocalCharges)}
+            onRemove={i => removeLine(localCharges, setLocalCharges, i)}
+          />
+        )}
+
+        {/* Aviso CIF */}
+        {isCIF && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
+            <strong>Incoterm CIF:</strong> El proveedor entrega la mercadería en Ecuador. No aplica flete internacional ni gastos locales GTL — solo se cobran los costos en destino (Bloque 3).
+          </div>
+        )}
 
         {/* Bloque 3 — auto-calculado */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -572,7 +615,7 @@ function ChargesBlock({
   title: string
   subtitle: string
   items: LineItem[]
-  setItems: (v: LineItem[]) => void
+  setItems?: (v: LineItem[]) => void
   total: number
   currency: string
   accent?: 'navy' | 'orange' | 'gray'
