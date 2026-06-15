@@ -278,92 +278,103 @@ export default function QuotationPdf(props: QuotationPdfProps) {
           </View>
         </View>
 
-        {/* 1. Alcance */}
+        {/* 1. Alcance del servicio */}
         <View style={s.p2section}>
-          <Text style={s.p2title}>1. ¿Qué incluye este servicio?</Text>
+          <Text style={s.p2title}>1. Alcance del Servicio</Text>
           <View style={s.p2row}>
+            {/* GTL hace */}
             <View style={[s.p2col, { backgroundColor: '#f0f7ff', borderRadius: 4, borderWidth: 1, borderColor: '#bfdbfe', padding: '8 10', marginRight: 6 }]}>
-              <Text style={[s.p2subtitle, { color: NAVY, marginTop: 0, marginBottom: 5 }]}>✓ GTL SE HACE CARGO DE:</Text>
-              <Text style={s.p2text}>• Transporte internacional {props.originPort} → {props.destinationPort}</Text>
-              <Text style={s.p2text}>• Agenciamiento de aduana en Ecuador</Text>
-              <Text style={s.p2text}>• Gestión de DAI, aforos y documentación</Text>
+              <Text style={[s.p2subtitle, { color: NAVY, marginTop: 0, marginBottom: 5 }]}>GTL GESTIONA POR USTED:</Text>
+              <Text style={s.p2text}>• Coordinación del transporte internacional</Text>
+              <Text style={s.p2text}>• Agenciamiento aduanero en Ecuador (SENAE)</Text>
+              <Text style={s.p2text}>• Cálculo de aranceles e impuestos de importación con base en la proforma de la naviera</Text>
+              <Text style={s.p2text}>• Transmisión y seguimiento de la declaración aduanera</Text>
               <Text style={s.p2text}>• Transporte nacional hasta {destFinal}</Text>
-              <Text style={s.p2text}>• Seguimiento en cada etapa del proceso</Text>
-              <Text style={s.p2text}>• Asesoría para prevención de multas</Text>
+              <Text style={s.p2text}>• Asesoría y seguimiento en cada etapa del proceso</Text>
             </View>
-            <View style={[s.p2col, { backgroundColor: '#fef2f2', borderRadius: 4, borderWidth: 1, borderColor: '#fecaca', padding: '8 10' }]}>
-              <Text style={[s.p2subtitle, { color: '#991b1b', marginTop: 0, marginBottom: 5 }]}>✗ EL CLIENTE PAGA DIRECTAMENTE:</Text>
-              <Text style={[s.p2text, { color: '#7f1d1d' }]}>• Impuestos SENAE (DAI, FODINFA, ICE, IVA)</Text>
-              <Text style={[s.p2text, { color: '#7f1d1d' }]}>• Bodegajes y servicios del terminal portuario</Text>
-              <Text style={[s.p2text, { color: '#7f1d1d' }]}>• Scanners y aforos físicos</Text>
-              <Text style={[s.p2text, { color: '#7f1d1d' }]}>• Multas o almacenajes por causas ajenas a GTL</Text>
-              <Text style={[s.p2text, { color: '#7f1d1d', marginTop: 4, fontFamily: 'Helvetica-Bold' }]}>Estos pagos se realizan directo a Aduana/Terminal, no a GTL.</Text>
+            {/* Cliente paga directo */}
+            <View style={[s.p2col, { backgroundColor: '#fef9ec', borderRadius: 4, borderWidth: 1, borderColor: '#fde68a', padding: '8 10' }]}>
+              <Text style={[s.p2subtitle, { color: '#92400e', marginTop: 0, marginBottom: 5 }]}>EL CLIENTE CANCELA DIRECTAMENTE A:</Text>
+              <Text style={[s.p2text, { color: '#78350f', fontFamily: 'Helvetica-Bold', marginBottom: 3 }]}>SENAE (Aduana Ecuador):</Text>
+              <Text style={[s.p2text, { color: '#78350f' }]}>• DAI · FODINFA · ICE · IVA importación</Text>
+              <Text style={[s.p2text, { color: '#78350f', marginTop: 3, marginBottom: 3, fontFamily: 'Helvetica-Bold' }]}>Terminal / Puerto:</Text>
+              <Text style={[s.p2text, { color: '#78350f' }]}>• Bodegajes y servicios portuarios</Text>
+              <Text style={[s.p2text, { color: '#78350f' }]}>• Scanners y aforos físicos</Text>
+              <Text style={[s.p2text, { color: '#78350f', marginTop: 5, lineHeight: 1.5 }]}>Estos valores NO pasan por GTL. GTL calcula los montos y los informa con anticipación para que el cliente los cancele directamente.</Text>
             </View>
           </View>
         </View>
 
-        {/* 2. Condiciones de pago */}
+        {/* 2. Aranceles */}
         <View style={s.p2section}>
-          <Text style={s.p2title}>2. ¿Cuándo se realizan los pagos?</Text>
-
-          {/* Tabla de pagos GTL */}
-          <Text style={[s.p2subtitle, { marginTop: 0, marginBottom: 4, color: NAVY }]}>Pagos a Global Trade Logistics S.A.S.</Text>
-          <View style={{ borderWidth: 1, borderColor: BORDER, borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
-            <View style={{ flexDirection: 'row', backgroundColor: NAVY, padding: '4 10' }}>
-              <Text style={[s.p2highlight, { flex: 1, color: '#ffffff', marginBottom: 0 }]}>Servicio</Text>
-              <Text style={[s.p2highlight, { width: 160, color: '#ffffff', marginBottom: 0 }]}>Momento de pago</Text>
-            </View>
+          <Text style={s.p2title}>2. Aranceles e Impuestos de Importación</Text>
+          <View style={{ backgroundColor: '#f0f4ff', borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '8 12', marginBottom: 8 }}>
+            <Text style={[s.p2highlight, { color: NAVY, marginBottom: 4 }]}>¿Cómo funcionan los aranceles?</Text>
+            <Text style={s.p2text}>GTL calcula los aranceles e impuestos de importación con base en los valores de la proforma comercial y la proforma de la naviera. Estos cálculos se entregan al cliente antes del despacho aduanero para su revisión y aprobación.</Text>
+            <Text style={[s.p2text, { marginTop: 4 }]}>El pago se realiza <Text style={{ fontFamily: 'Helvetica-Bold' }}>directamente al SENAE</Text> a través de los canales oficiales — nunca a través de GTL. La liquidación final depende de la verificación documental y el canal de aforo asignado.</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             {[
-              ['Transporte Internacional', 'Al arribar la carga al puerto'],
-              ['Agente de Aduana', 'Al obtener la salida autorizada'],
-              ['Transporte Nacional', 'Al despachar hacia el destino final'],
-              ['Póliza de Seguro', 'Al arribar la carga al puerto'],
-            ].map(([svc, moment], i) => (
-              <View key={i} style={{ flexDirection: 'row', padding: '4 10', backgroundColor: i % 2 === 1 ? LIGHT_GRAY : '#ffffff', borderTopWidth: 1, borderTopColor: BORDER }}>
-                <Text style={[s.p2text, { flex: 1, marginBottom: 0 }]}>{svc}</Text>
-                <Text style={[s.p2text, { width: 160, marginBottom: 0 }]}>{moment}</Text>
+              ['DAI', 'Arancel sobre el valor CIF de la mercadería'],
+              ['FODINFA', '0.5% sobre el valor CIF'],
+              ['ICE', 'Aplica según el tipo de producto'],
+              ['IVA', '15% sobre base imponible total'],
+            ].map(([label, desc], i) => (
+              <View key={i} style={{ flex: 1, backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderColor: BORDER, padding: '5 8' }}>
+                <Text style={[s.p2highlight, { color: NAVY, marginBottom: 2, fontSize: 8 }]}>{label}</Text>
+                <Text style={[s.p2text, { marginBottom: 0, fontSize: 7 }]}>{desc}</Text>
               </View>
             ))}
           </View>
+        </View>
 
-          {/* Pagos terceros */}
-          <Text style={[s.p2subtitle, { marginTop: 4, marginBottom: 4, color: '#991b1b' }]}>Pagos directos a terceros (no a GTL)</Text>
-          <View style={{ borderWidth: 1, borderColor: '#fecaca', borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
+        {/* 3. Condiciones de pago */}
+        <View style={s.p2section}>
+          <Text style={s.p2title}>3. Proceso y Condiciones de Pago</Text>
+          <View style={{ borderWidth: 1, borderColor: BORDER, borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', backgroundColor: NAVY, padding: '4 10' }}>
+              <Text style={[s.p2highlight, { flex: 1, color: '#ffffff', marginBottom: 0 }]}>Concepto</Text>
+              <Text style={[s.p2highlight, { width: 80, color: '#ffffff', marginBottom: 0 }]}>A quién</Text>
+              <Text style={[s.p2highlight, { width: 130, color: '#ffffff', marginBottom: 0 }]}>Cuándo</Text>
+            </View>
             {[
-              ['Impuestos SENAE (DAI, FODINFA, ICE, IVA)', 'Al transmitir la declaración aduanera'],
-              ['Puerto / Terminal marítimo', 'Al facturarse bodegajes o servicios portuarios'],
-            ].map(([svc, moment], i) => (
-              <View key={i} style={{ flexDirection: 'row', padding: '4 10', backgroundColor: i % 2 === 1 ? '#fef2f2' : '#fff5f5', borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#fecaca' }}>
-                <Text style={[s.p2text, { flex: 1, marginBottom: 0, color: '#7f1d1d' }]}>{svc}</Text>
-                <Text style={[s.p2text, { width: 160, marginBottom: 0, color: '#7f1d1d' }]}>{moment}</Text>
+              ['Flete internacional', 'GTL', 'Al arribo de la carga a Ecuador'],
+              ['Agente de aduana', 'GTL', 'Al obtener la salida autorizada (DAE)'],
+              ['Transporte nacional', 'GTL', 'Al despachar hacia el destino final'],
+              ['Póliza de seguro (si aplica)', 'GTL', 'Al coordinarse el embarque'],
+              ['Aranceles e impuestos', 'SENAE', 'Antes del desaduanamiento'],
+              ['Servicios portuarios', 'Terminal', 'Según facturación del terminal'],
+            ].map(([svc, who, when], i) => (
+              <View key={i} style={{ flexDirection: 'row', padding: '4 10', backgroundColor: i % 2 === 1 ? LIGHT_GRAY : '#ffffff', borderTopWidth: 1, borderTopColor: BORDER }}>
+                <Text style={[s.p2text, { flex: 1, marginBottom: 0 }]}>{svc}</Text>
+                <Text style={[s.p2text, { width: 80, marginBottom: 0, fontFamily: who === 'GTL' ? 'Helvetica' : 'Helvetica-Bold', color: who === 'GTL' ? '#334155' : '#92400e' }]}>{who}</Text>
+                <Text style={[s.p2text, { width: 130, marginBottom: 0 }]}>{when}</Text>
               </View>
             ))}
           </View>
 
           {/* Datos bancarios */}
           <View style={s.p2bankBox}>
-            <Text style={s.p2bankTitle}>Cuenta bancaria para pagos a GTL</Text>
-            <View style={{ flexDirection: 'row', gap: 20 }}>
+            <Text style={s.p2bankTitle}>Datos bancarios para pagos a GTL</Text>
+            <View style={{ flexDirection: 'row', gap: 16 }}>
               <Text style={s.p2bankText}>Banco: Produbanco</Text>
-              <Text style={s.p2bankText}>Tipo: Cuenta Corriente</Text>
+              <Text style={s.p2bankText}>Tipo: Cta. Corriente</Text>
               <Text style={s.p2bankText}>N°: 27059115225</Text>
             </View>
             <Text style={[s.p2bankText, { marginTop: 2 }]}>Beneficiario: Global Trade Logistics S.A.S. · RUC: 1793228976001</Text>
           </View>
         </View>
 
-        {/* 3. Términos & Condiciones */}
+        {/* 4. Condiciones Generales */}
         <View style={s.p2section}>
-          <Text style={s.p2title}>3. Condiciones Generales</Text>
-          <View style={[s.p2box, { marginBottom: 8 }]}>
-            <Text style={s.p2text}>• Esta cotización aplica únicamente para <Text style={{ fontFamily: 'Helvetica-Bold' }}>carga general</Text> (no pesada ni sobredimensionada).</Text>
-            <Text style={s.p2text}>• Los valores están sujetos a cambios por disponibilidad de espacio y confirmación de la naviera.</Text>
-            <Text style={s.p2text}>• Los tiempos de tránsito son referenciales y pueden variar por congestión en puertos sin previo aviso.</Text>
-            <Text style={s.p2text}>• Para confirmar reserva, contactar a GTL con al menos <Text style={{ fontFamily: 'Helvetica-Bold' }}>7 días de anticipación</Text> al embarque.</Text>
-          </View>
-          <View style={{ backgroundColor: '#f0f4ff', borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '8 10' }}>
-            <Text style={[s.p2highlight, { color: NAVY, marginBottom: 4 }]}>Importante — Seguro de Carga</Text>
-            <Text style={s.p2text}>GTL recomienda contratar un seguro de carga que cubra el valor de la mercadería más el flete. Los embarques <Text style={{ fontFamily: 'Helvetica-Bold' }}>NO están asegurados</Text> a través de GTL salvo que se solicite expresamente por escrito (correo electrónico) antes de recoger la carga, indicando valor de la mercancía y tipo de carga.</Text>
+          <Text style={s.p2title}>4. Condiciones Generales</Text>
+          <View style={s.p2box}>
+            <Text style={s.p2text}>• Esta cotización aplica para <Text style={{ fontFamily: 'Helvetica-Bold' }}>carga general</Text>. Cargas peligrosas, sobredimensionadas o especiales requieren cotización aparte.</Text>
+            <Text style={s.p2text}>• Los valores de flete están sujetos a disponibilidad de espacio y confirmación de la naviera a la fecha de reserva.</Text>
+            <Text style={s.p2text}>• Los tiempos de tránsito son referenciales y pueden variar por congestión portuaria o demoras en origen sin previo aviso.</Text>
+            <Text style={s.p2text}>• GTL no se hace responsable por multas, almacenajes extendidos ni demoras causadas por documentación incompleta del cliente o restricciones SENAE.</Text>
+            <Text style={s.p2text}>• Para confirmar la reserva, contactar a GTL con mínimo <Text style={{ fontFamily: 'Helvetica-Bold' }}>7 días de anticipación</Text> al embarque. La reserva se confirma con el anticipo acordado.</Text>
+            <Text style={[s.p2text, { marginBottom: 0 }]}>• El seguro de carga <Text style={{ fontFamily: 'Helvetica-Bold' }}>no está incluido</Text> salvo solicitud expresa por escrito. GTL recomienda asegurar la mercadería por el valor CIF + 10%.</Text>
           </View>
         </View>
 
