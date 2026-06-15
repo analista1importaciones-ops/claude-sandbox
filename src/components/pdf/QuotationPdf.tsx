@@ -16,10 +16,10 @@ const LIGHT_GRAY = '#f0f4ff'
 const BORDER = '#c7d7f5'
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', fontSize: 9, color: '#1e293b', padding: '30 40 40 40', backgroundColor: '#ffffff' },
+  page: { fontFamily: 'Helvetica', fontSize: 9, color: '#1e293b', padding: '22 38 28 38', backgroundColor: '#ffffff' },
 
   // Header
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, paddingBottom: 16, borderBottomWidth: 2, borderBottomColor: NAVY },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: NAVY },
   logoBlock: { flexDirection: 'column' },
   logoName: { fontSize: 16, fontFamily: 'Helvetica-Bold', color: NAVY, letterSpacing: 0.5 },
   logoSub: { fontSize: 7.5, color: '#64748b', marginTop: 2 },
@@ -29,21 +29,21 @@ const s = StyleSheet.create({
   quoteDate: { fontSize: 8, color: '#475569', marginTop: 3 },
 
   // Client + route strip
-  metaRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  metaRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   metaBox: { flex: 1, backgroundColor: LIGHT_GRAY, borderRadius: 4, padding: '10 12', borderWidth: 1, borderColor: BORDER },
   metaLabel: { fontSize: 7, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4, fontFamily: 'Helvetica-Bold' },
   metaValue: { fontSize: 9, color: '#1e293b', fontFamily: 'Helvetica-Bold' },
   metaSub: { fontSize: 8, color: '#64748b', marginTop: 2 },
 
   // Tables
-  section: { marginBottom: 12 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  sectionDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: NAVY, marginRight: 6 },
-  sectionTitle: { fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5 },
+  section: { marginBottom: 9 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  sectionDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: NAVY, marginRight: 6 },
+  sectionTitle: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5 },
   table: { borderWidth: 1, borderColor: BORDER, borderRadius: 4, overflow: 'hidden' },
-  tableHead: { flexDirection: 'row', backgroundColor: NAVY, padding: '5 10' },
+  tableHead: { flexDirection: 'row', backgroundColor: NAVY, padding: '4 10' },
   tableHeadText: { fontSize: 7.5, color: '#ffffff', fontFamily: 'Helvetica-Bold', textTransform: 'uppercase' },
-  tableRow: { flexDirection: 'row', padding: '5 10', borderBottomWidth: 1, borderBottomColor: BORDER },
+  tableRow: { flexDirection: 'row', padding: '4 10', borderBottomWidth: 1, borderBottomColor: BORDER },
   tableRowAlt: { backgroundColor: LIGHT_GRAY },
   tableCell: { flex: 1, fontSize: 8.5, color: '#334155' },
   tableCellRight: { width: 80, fontSize: 8.5, color: '#0f172a', fontFamily: 'Helvetica-Bold', textAlign: 'right' },
@@ -52,13 +52,13 @@ const s = StyleSheet.create({
   subtotalValue: { width: 80, fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: NAVY, textAlign: 'right' },
 
   // Grand total
-  totalBox: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6, marginBottom: 16 },
-  totalInner: { backgroundColor: NAVY, borderRadius: 6, padding: '10 16', flexDirection: 'row', alignItems: 'center', gap: 20, minWidth: 220 },
+  totalBox: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4, marginBottom: 10 },
+  totalInner: { backgroundColor: NAVY, borderRadius: 6, padding: '8 16', flexDirection: 'row', alignItems: 'center', gap: 20, minWidth: 220 },
   totalLabel: { fontSize: 10, color: '#ffffff', fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.5 },
   totalValue: { fontSize: 14, color: '#ffffff', fontFamily: 'Helvetica-Bold' },
 
   // Conditions + footer
-  conditions: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '8 12', marginBottom: 14 },
+  conditions: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '6 12', marginBottom: 10 },
   condTitle: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', marginBottom: 5 },
   condItem: { fontSize: 7.5, color: '#334155', marginBottom: 2.5 },
   footer: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -161,7 +161,7 @@ export default function QuotationPdf(props: QuotationPdfProps) {
         {/* Header */}
         <View style={s.header}>
           <View style={s.logoBlock}>
-            <Image src={LOGO_PATH} style={{ width: 90, height: 90, objectFit: 'contain' }} />
+            <Image src={LOGO_PATH} style={{ width: 70, height: 70, objectFit: 'contain' }} />
           </View>
           <View style={s.quoteInfo}>
             <Text style={s.quoteLabel}>Cotización de Flete</Text>
@@ -379,7 +379,7 @@ export default function QuotationPdf(props: QuotationPdfProps) {
         </View>
 
         {/* Footer p2 */}
-        <View style={[s.footer, { position: 'absolute', bottom: 30, left: 40, right: 40 }]}>
+        <View style={[s.footer, { position: 'absolute', bottom: 22, left: 38, right: 38 }]}>
           <Text style={s.footerText}>Global Trade Logistics S.A.S. · Ecuador</Text>
           <Text style={s.footerBold}>{props.number}</Text>
           <Text style={s.footerText}>Página 2 de 2</Text>
