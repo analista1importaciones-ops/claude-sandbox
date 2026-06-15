@@ -44,6 +44,68 @@ const INCOTEMS = ['EXW', 'FOB', 'CIF', 'DAP', 'DDP', 'FCA', 'CPT', 'CIP']
 function today() { return new Date().toISOString().split('T')[0] }
 function daysFromNow(n: number) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0] }
 
+// ── Tarifas locales automáticas ──────────────────────────────────────────────
+
+function calcBodegaje(mode: string, cbm: number): number {
+  if (mode === 'FCL20') return 450
+  if (mode === 'FCL40' || mode === 'FCL40HC') return 550
+  // LCL / AIR por CBM
+  if (cbm <= 2) return 100
+  if (cbm <= 3) return 120
+  if (cbm <= 4) return 180
+  if (cbm <= 5) return 290
+  if (cbm <= 10) return 350
+  return 450
+}
+
+function calcTransporte(mode: string, city: string, cbm: number): number {
+  if (city === 'UIO') {
+    if (mode === 'FCL20') return 600
+    if (mode === 'FCL40' || mode === 'FCL40HC') return 700
+    return 350 // LCL / AIR
+  }
+  if (city === 'OTRA') {
+    // Transporte Nacional por CBM
+    if (mode === 'FCL20') return 750
+    if (mode === 'FCL40' || mode === 'FCL40HC') return 800
+    // LCL/AIR por M3 (tabla exacta, $50 por M3 adicional)
+    const m = Math.ceil(cbm) || 1
+    return Math.min(140 + (m - 1) * 50, 590)
+  }
+  // GYE
+  if (mode === 'FCL20') return 250
+  if (mode === 'FCL40' || mode === 'FCL40HC') return 300
+  return 100 // LCL / AIR
+}
+
+function calcAgenteAduana(mode: string): number {
+  return mode === 'AIR' ? 280 : 332.58
+}
+
+function calcSeguro(fobValue: number): number {
+  if (!fobValue || fobValue <= 0) return 0
+  return Math.max(fobValue * 0.006, 35)
+}
+
+function calcTransporteLabel(city: string): string {
+  if (city === 'UIO') return 'Transporte Interno - UIO'
+  if (city === 'OTRA') return 'Transporte Nacional'
+  return 'Transporte Interno - GYE'
+}
+
+function buildOtherCharges(mode: string, cbm: number, city: string, fobValue: number): LineItem[] {
+  const items: LineItem[] = [
+    { label: 'Agente de Aduana / Despacho Aduanero', amount: calcAgenteAduana(mode) },
+    { label: calcTransporteLabel(city), amount: calcTransporte(mode, city, cbm) },
+    { label: 'INEN', amount: 50 },
+    { label: 'Seguro Todo Riesgo / Póliza', amount: calcSeguro(fobValue) },
+    { label: 'Bodegaje Aprox. Patio', amount: calcBodegaje(mode, cbm) },
+  ]
+  return items
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function NewQuotationPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -76,18 +138,24 @@ export default function NewQuotationPage() {
   const [validUntil, setValidUntil] = useState(daysFromNow(15))
   const [notes, setNotes] = useState('')
 
-  // Intl charges (editable line items)
+  // Delivery city for transport calc
+  const [deliveryCity, setDeliveryCity] = useState('GYE')
+  // FOB value for insurance calc
+  const [fobValue, setFobValue] = useState('')
+
+  // Charge blocks
   const [intlCharges, setIntlCharges] = useState<LineItem[]>([])
-
-  // Local GTL charges (pre-loaded from GtlCostConfig, editable)
   const [localCharges, setLocalCharges] = useState<LineItem[]>([])
+  const [otherCharges, setOtherCharges] = useState<LineItem[]>(() =>
+    buildOtherCharges('LCL', 0, 'GYE', 0)
+  )
 
-  // Other charges
-  const [otherCharges, setOtherCharges] = useState<LineItem[]>([
-    { label: 'Transporte interno', amount: 0 },
-  ])
+  // Recompute Block 3 when mode / cbm / city / fob change
+  useEffect(() => {
+    setOtherCharges(buildOtherCharges(mode, parseFloat(cbm) || 0, deliveryCity, parseFloat(fobValue) || 0))
+  }, [mode, cbm, deliveryCity, fobValue])
 
-  // Load GTL cost configs
+  // Load GTL cost configs (Block 2)
   const loadGtlConfigs = useCallback(async () => {
     try {
       const res = await fetch('/api/gtl-costs')
@@ -96,14 +164,11 @@ export default function NewQuotationPage() {
         setLocalCharges(configs.map(c => ({ label: c.label, amount: c.value })))
       }
     } catch {
-      // Use defaults if API not available
       setLocalCharges([
         { label: 'Servicio logístico GTL', amount: 225 },
         { label: 'Admisión', amount: 170 },
         { label: 'Transmisión', amount: 115 },
         { label: 'Loc / ISD', amount: 67 },
-        { label: 'Agente de aduana', amount: 332.58 },
-        { label: 'Bodega', amount: 150 },
       ])
     }
   }, [])
@@ -116,8 +181,6 @@ export default function NewQuotationPage() {
       .then(r => r.json())
       .then((data: RateData) => {
         setRate(data)
-
-        // Compute status client-side
         const now = new Date()
         const vu = new Date(data.validUntil)
         const sevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -126,14 +189,12 @@ export default function NewQuotationPage() {
         else if (vu <= sevenDays) setRateStatus('EXPIRING_SOON')
         else setRateStatus('ACTIVE')
 
-        // Pre-fill route fields
         setOriginPort(data.originPort)
         setDestinationPort(data.destinationPort)
         setOriginCountry(data.originCountry)
         setMode(data.mode)
         setCurrency(data.currency || 'USD')
 
-        // Build intl charges from rate surcharges
         const lines: LineItem[] = []
         if (data.freightRate) lines.push({ label: 'Ocean Freight', amount: Number(data.freightRate) })
         for (const f of SURCHARGE_FIELDS) {
@@ -151,6 +212,8 @@ export default function NewQuotationPage() {
   }, [rateId, loadGtlConfigs])
 
   const isLCL = mode === 'LCL'
+  const isAIR = mode === 'AIR'
+  const isFCL = mode === 'FCL20' || mode === 'FCL40' || mode === 'FCL40HC'
 
   const intlTotal = intlCharges.reduce((s, r) => s + (Number(r.amount) || 0), 0)
   const localTotal = localCharges.reduce((s, r) => s + (Number(r.amount) || 0), 0)
@@ -188,8 +251,8 @@ export default function NewQuotationPage() {
           customerName, customerEmail: customerEmail || undefined, customerPhone: customerPhone || undefined,
           originPort, destinationPort, originCountry, destinationCountry,
           mode, incoterm, currency,
-          cbm: isLCL ? cbm || undefined : undefined,
-          containers: !isLCL ? containers || undefined : undefined,
+          cbm: (isLCL || isAIR) ? cbm || undefined : undefined,
+          containers: isFCL ? containers || undefined : undefined,
           grossWeightKg: grossWeightKg || undefined,
           productDesc: productDesc || undefined,
           issueDate, validUntil,
@@ -222,7 +285,6 @@ export default function NewQuotationPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
         <Link href="/quotations" className="hover:text-gray-600">Cotizaciones</Link>
         <span>/</span>
@@ -236,21 +298,20 @@ export default function NewQuotationPage() {
         </div>
       </div>
 
-      {/* Rate status warnings */}
       {rateStatus === 'EXPIRED' && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5 text-sm text-red-700">
-          ✕ La tarifa seleccionada está <strong>vencida</strong>. No se puede usar en nuevas cotizaciones. <Link href="/rates" className="underline font-medium">Seleccione otra tarifa</Link>.
+          ✕ La tarifa seleccionada está <strong>vencida</strong>. No se puede usar. <Link href="/rates" className="underline font-medium">Seleccione otra tarifa</Link>.
         </div>
       )}
       {rateStatus === 'EXPIRING_SOON' && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-5 text-sm text-orange-700">
-          ⚠ Esta tarifa vence en menos de 7 días. Confirme con el agente antes de enviar la cotización al cliente.
+          ⚠ Esta tarifa vence en menos de 7 días. Confirme con el agente antes de enviar al cliente.
         </div>
       )}
 
       <form onSubmit={handleSave} className="space-y-5">
 
-        {/* Section 1: Client */}
+        {/* Cliente */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase mb-4">Datos del cliente</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -275,7 +336,7 @@ export default function NewQuotationPage() {
           </div>
         </div>
 
-        {/* Section 2: Route */}
+        {/* Embarque */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase mb-4">Datos del embarque</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -298,32 +359,36 @@ export default function NewQuotationPage() {
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">País destino</label>
-              <input value={destinationCountry} onChange={e => setDestinationCountry(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy" />
+              <label className="block text-xs font-medium text-gray-600 mb-1">Ciudad entrega</label>
+              <select value={deliveryCity} onChange={e => setDeliveryCity(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy bg-white">
+                <option value="GYE">Guayaquil (GYE)</option>
+                <option value="UIO">Quito (UIO)</option>
+                <option value="OTRA">Otra ciudad</option>
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Modalidad</label>
               <select value={mode} onChange={e => setMode(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy">
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy bg-white">
                 {Object.entries(modeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Incoterm</label>
               <select value={incoterm} onChange={e => setIncoterm(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy">
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy bg-white">
                 {INCOTEMS.map(i => <option key={i} value={i}>{i}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">{isLCL ? 'CBM (m³)' : 'Contenedores'}</label>
-              {isLCL
-                ? <input type="number" step="0.001" min="0" value={cbm} onChange={e => setCbm(e.target.value)} placeholder="0.000"
+              <label className="block text-xs font-medium text-gray-600 mb-1">{isFCL ? 'Contenedores' : 'CBM (m³)'}</label>
+              {isFCL
+                ? <input type="number" min="1" value={containers} onChange={e => setContainers(e.target.value)} placeholder="1"
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy" />
-                : <input type="number" min="1" value={containers} onChange={e => setContainers(e.target.value)} placeholder="1"
+                : <input type="number" step="0.001" min="0" value={cbm} onChange={e => setCbm(e.target.value)} placeholder="0.000"
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy" />
               }
             </div>
@@ -335,23 +400,32 @@ export default function NewQuotationPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Descripción de carga (opcional)</label>
+            <div className="md:col-span-1">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Descripción de carga</label>
               <input value={productDesc} onChange={e => setProductDesc(e.target.value)}
-                placeholder="Ej: Maquinaria industrial, ropa, electrodomésticos..."
+                placeholder="Ej: Maquinaria industrial, ropa..."
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Valor FOB (USD) <span className="text-gray-400 font-normal">— para seguro</span></label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <input type="number" step="0.01" min="0" value={fobValue} onChange={e => setFobValue(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy" />
+              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Moneda</label>
               <select value={currency} onChange={e => setCurrency(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy">
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy bg-white">
                 <option value="USD">USD</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Section 3: Dates */}
+        {/* Fechas */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase mb-4">Fechas de la cotización</h2>
           <div className="grid grid-cols-2 gap-4">
@@ -368,10 +442,10 @@ export default function NewQuotationPage() {
           </div>
         </div>
 
-        {/* Section 4: Bloque 1 — Transporte Internacional */}
+        {/* Bloque 1 */}
         <ChargesBlock
           title="Bloque 1 — Transporte Internacional"
-          subtitle={`por ${isLCL ? 'CBM' : 'contenedor'}`}
+          subtitle={`por ${isFCL ? 'contenedor' : isAIR ? 'kg/kg' : 'CBM'}`}
           items={intlCharges}
           setItems={setIntlCharges}
           total={intlTotal}
@@ -381,7 +455,7 @@ export default function NewQuotationPage() {
           onRemove={i => removeLine(intlCharges, setIntlCharges, i)}
         />
 
-        {/* Section 5: Bloque 2 — Gastos Locales GTL */}
+        {/* Bloque 2 */}
         <ChargesBlock
           title="Bloque 2 — Gastos Locales GTL"
           subtitle="fijos por operación"
@@ -395,21 +469,47 @@ export default function NewQuotationPage() {
           onRemove={i => removeLine(localCharges, setLocalCharges, i)}
         />
 
-        {/* Section 6: Bloque 3 — Otros Costos */}
-        <ChargesBlock
-          title="Bloque 3 — Otros Costos"
-          subtitle="transporte, seguro, etc."
-          items={otherCharges}
-          setItems={setOtherCharges}
-          total={otherTotal}
-          currency={currency}
-          accent="gray"
-          onUpdate={(i, f, v) => updateLine(otherCharges, setOtherCharges, i, f, v)}
-          onAdd={() => addLine(otherCharges, setOtherCharges)}
-          onRemove={i => removeLine(otherCharges, setOtherCharges, i)}
-        />
+        {/* Bloque 3 — auto-calculado */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+            <h2 className="text-sm font-semibold text-gray-700">Bloque 3 — Otros Costos en Destino</h2>
+            <span className="text-xs text-gray-400">— calculado automáticamente</span>
+          </div>
+          <p className="text-xs text-gray-400 mb-4 ml-[18px]">
+            Calculado según modalidad ({modeLabels[mode]}), ciudad ({deliveryCity}{!isFCL && cbm ? `, ${cbm} CBM` : ''}).
+            Puedes editar los valores manualmente.
+          </p>
 
-        {/* Grand Total */}
+          <div className="space-y-2">
+            {otherCharges.map((item, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input value={item.label} onChange={e => updateLine(otherCharges, setOtherCharges, i, 'label', e.target.value)}
+                  placeholder="Concepto"
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gtl-navy" />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input type="number" step="0.01" min="0" value={item.amount || ''} onChange={e => updateLine(otherCharges, setOtherCharges, i, 'amount', e.target.value)}
+                    placeholder="0.00"
+                    className="w-28 pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gtl-navy text-right font-mono" />
+                </div>
+                <button type="button" onClick={() => removeLine(otherCharges, setOtherCharges, i)} className="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none">×</button>
+              </div>
+            ))}
+          </div>
+
+          <button type="button" onClick={() => addLine(otherCharges, setOtherCharges)}
+            className="mt-3 text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
+            <span>+</span> Agregar ítem
+          </button>
+
+          <div className="mt-4 flex justify-between items-center pt-3 border-t border-gray-100">
+            <span className="text-xs text-gray-500 uppercase font-semibold">Subtotal</span>
+            <span className="font-bold font-mono text-base text-gray-600">${otherTotal.toFixed(2)} {currency}</span>
+          </div>
+        </div>
+
+        {/* Total General */}
         <div className="bg-gtl-navy rounded-xl p-5">
           <div className="flex items-center justify-between">
             <div>
@@ -423,7 +523,7 @@ export default function NewQuotationPage() {
           </div>
         </div>
 
-        {/* Notes */}
+        {/* Observaciones */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase mb-3">Observaciones (opcional)</h2>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
