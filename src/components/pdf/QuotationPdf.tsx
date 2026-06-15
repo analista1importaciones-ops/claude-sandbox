@@ -30,7 +30,7 @@ const s = StyleSheet.create({
 
   // Client + route strip
   metaRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  metaBox: { flex: 1, backgroundColor: LIGHT_GRAY, borderRadius: 4, padding: '10 12', borderWidth: 1, borderColor: BORDER },
+  metaBox: { flex: 1, backgroundColor: LIGHT_GRAY, borderRadius: 4, padding: '7 10', borderWidth: 1, borderColor: BORDER },
   metaLabel: { fontSize: 7, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4, fontFamily: 'Helvetica-Bold' },
   metaValue: { fontSize: 9, color: '#1e293b', fontFamily: 'Helvetica-Bold' },
   metaSub: { fontSize: 8, color: '#64748b', marginTop: 2 },
@@ -47,7 +47,7 @@ const s = StyleSheet.create({
   tableRowAlt: { backgroundColor: LIGHT_GRAY },
   tableCell: { flex: 1, fontSize: 8.5, color: '#334155' },
   tableCellRight: { width: 80, fontSize: 8.5, color: '#0f172a', fontFamily: 'Helvetica-Bold', textAlign: 'right' },
-  subtotalRow: { flexDirection: 'row', padding: '6 10', backgroundColor: '#eff6ff', borderTopWidth: 1, borderTopColor: '#bfdbfe' },
+  subtotalRow: { flexDirection: 'row', padding: '4 10', backgroundColor: '#eff6ff', borderTopWidth: 1, borderTopColor: '#bfdbfe' },
   subtotalLabel: { flex: 1, fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: NAVY },
   subtotalValue: { width: 80, fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: NAVY, textAlign: 'right' },
 
@@ -58,28 +58,28 @@ const s = StyleSheet.create({
   totalValue: { fontSize: 14, color: '#ffffff', fontFamily: 'Helvetica-Bold' },
 
   // Conditions + footer
-  conditions: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '6 12', marginBottom: 10 },
-  condTitle: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', marginBottom: 5 },
-  condItem: { fontSize: 7.5, color: '#334155', marginBottom: 2.5 },
-  footer: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  conditions: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '5 10', marginBottom: 8 },
+  condTitle: { fontSize: 7, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', marginBottom: 4 },
+  condItem: { fontSize: 7, color: '#334155', marginBottom: 1.5 },
+  footer: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 6, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   footerText: { fontSize: 7, color: '#94a3b8' },
   footerBold: { fontSize: 7, color: NAVY, fontFamily: 'Helvetica-Bold' },
 
   // Page 2
-  p2header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: NAVY },
-  p2section: { marginBottom: 14 },
-  p2title: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: BORDER },
-  p2subtitle: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#334155', marginTop: 6, marginBottom: 3 },
-  p2text: { fontSize: 7.5, color: '#475569', marginBottom: 2.5, lineHeight: 1.4 },
-  p2highlight: { fontSize: 7.5, color: '#334155', fontFamily: 'Helvetica-Bold', marginBottom: 2 },
-  p2box: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderColor: BORDER, padding: '8 12', marginBottom: 10 },
-  p2row: { flexDirection: 'row', gap: 12 },
+  p2header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: NAVY },
+  p2section: { marginBottom: 10 },
+  p2title: { fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, paddingBottom: 3, borderBottomWidth: 1, borderBottomColor: BORDER },
+  p2subtitle: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#334155', marginTop: 4, marginBottom: 2 },
+  p2text: { fontSize: 7, color: '#475569', marginBottom: 2, lineHeight: 1.35 },
+  p2highlight: { fontSize: 7, color: '#334155', fontFamily: 'Helvetica-Bold', marginBottom: 2 },
+  p2box: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderColor: BORDER, padding: '6 10', marginBottom: 8 },
+  p2row: { flexDirection: 'row', gap: 10 },
   p2col: { flex: 1 },
-  p2bankBox: { backgroundColor: '#eff6ff', borderRadius: 4, borderWidth: 1, borderColor: '#bfdbfe', padding: '8 12', marginTop: 8 },
-  p2bankTitle: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: NAVY, marginBottom: 4 },
-  p2bankText: { fontSize: 7.5, color: '#1e40af', marginBottom: 1.5 },
-  p2warning: { backgroundColor: '#fff7ed', borderRadius: 4, borderWidth: 1, borderColor: '#fed7aa', padding: '7 10', marginBottom: 6 },
-  p2warningText: { fontSize: 7.5, color: '#92400e', lineHeight: 1.4 },
+  p2bankBox: { backgroundColor: '#eff6ff', borderRadius: 4, borderWidth: 1, borderColor: '#bfdbfe', padding: '6 10', marginTop: 6 },
+  p2bankTitle: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: NAVY, marginBottom: 3 },
+  p2bankText: { fontSize: 7, color: '#1e40af', marginBottom: 1.5 },
+  p2warning: { backgroundColor: '#fff7ed', borderRadius: 4, borderWidth: 1, borderColor: '#fed7aa', padding: '5 8', marginBottom: 5 },
+  p2warningText: { fontSize: 7, color: '#92400e', lineHeight: 1.35 },
 })
 
 type LineItem = { label: string; amount: number }
@@ -282,7 +282,7 @@ export default function QuotationPdf(props: QuotationPdfProps) {
           <Text style={s.p2title}>1. Alcance del Servicio</Text>
           <View style={s.p2row}>
             {/* GTL hace */}
-            <View style={[s.p2col, { backgroundColor: '#f0f7ff', borderRadius: 4, borderWidth: 1, borderColor: '#bfdbfe', padding: '8 10', marginRight: 6 }]}>
+            <View style={[s.p2col, { backgroundColor: '#f0f7ff', borderRadius: 4, borderWidth: 1, borderColor: '#bfdbfe', padding: '6 8', marginRight: 6 }]}>
               <Text style={[s.p2subtitle, { color: NAVY, marginTop: 0, marginBottom: 5 }]}>GTL GESTIONA POR USTED:</Text>
               <Text style={s.p2text}>• Coordinación del transporte internacional</Text>
               <Text style={s.p2text}>• Agenciamiento aduanero en Ecuador (SENAE)</Text>
@@ -292,7 +292,7 @@ export default function QuotationPdf(props: QuotationPdfProps) {
               <Text style={s.p2text}>• Asesoría y seguimiento en cada etapa del proceso</Text>
             </View>
             {/* Cliente paga directo */}
-            <View style={[s.p2col, { backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: '#cbd5e1', borderLeftColor: '#475569', padding: '8 10' }]}>
+            <View style={[s.p2col, { backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: '#cbd5e1', borderLeftColor: '#475569', padding: '6 8' }]}>
               <Text style={[s.p2subtitle, { color: '#1e293b', marginTop: 0, marginBottom: 5 }]}>EL CLIENTE PAGA DIRECTAMENTE A:</Text>
               <Text style={[s.p2text, { color: '#1e293b', fontFamily: 'Helvetica-Bold', marginBottom: 3 }]}>SENAE — Aduana Ecuador:</Text>
               <Text style={[s.p2text, { color: '#334155' }]}>• DAI · FODINFA · ICE · IVA importación</Text>
@@ -307,7 +307,7 @@ export default function QuotationPdf(props: QuotationPdfProps) {
         {/* 2. Aranceles */}
         <View style={s.p2section}>
           <Text style={s.p2title}>2. Aranceles e Impuestos de Importación</Text>
-          <View style={{ backgroundColor: '#f0f4ff', borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '8 12', marginBottom: 8 }}>
+          <View style={{ backgroundColor: '#f0f4ff', borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '5 10', marginBottom: 6 }}>
             <Text style={[s.p2highlight, { color: NAVY, marginBottom: 4 }]}>¿Cómo funcionan los aranceles?</Text>
             <Text style={s.p2text}>GTL calcula los aranceles e impuestos de importación con base en los valores de la proforma comercial y la proforma de la naviera. Estos cálculos se entregan al cliente antes del despacho aduanero para su revisión y aprobación.</Text>
             <Text style={[s.p2text, { marginTop: 4 }]}>El pago se realiza <Text style={{ fontFamily: 'Helvetica-Bold' }}>directamente al SENAE</Text> a través de los canales oficiales — nunca a través de GTL. La liquidación final depende de la verificación documental y el canal de aforo asignado.</Text>
