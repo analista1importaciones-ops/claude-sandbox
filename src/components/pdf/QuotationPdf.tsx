@@ -244,11 +244,10 @@ export default function QuotationPdf(props: QuotationPdfProps) {
         {/* Conditions */}
         <View style={s.conditions}>
           <Text style={s.condTitle}>Condiciones Comerciales</Text>
-          <Text style={s.condItem}>• Cotización válida hasta la fecha indicada, sujeta a disponibilidad de espacio y tarifas confirmadas por el agente.</Text>
-          <Text style={s.condItem}>• Los valores de flete internacional están expresados en USD y pueden variar según fecha de embarque.</Text>
-          <Text style={s.condItem}>• No incluye tributos de importación (DAI, FODINFA, ICE, IVA importación). Los gastos locales con asterisco (*) incluyen IVA 15%.</Text>
-          <Text style={s.condItem}>• Tipo de cambio referencial: USD. Gastos de origen sujetos a liquidación final del agente en origen.</Text>
-          <Text style={s.condItem}>• Para confirmar reserva, favor contactar a GTL con al menos 7 días de anticipación al embarque.</Text>
+          <Text style={s.condItem}>• Cotización válida hasta la fecha indicada, sujeta a disponibilidad de espacio y confirmación de la naviera.</Text>
+          <Text style={s.condItem}>• Los valores son referenciales y pueden variar si cambia el volumen (CBM) o el peso de la carga.</Text>
+          <Text style={s.condItem}>• Los aranceles e impuestos de importación se calculan por GTL y se pagan directamente al SENAE — ver página 2.</Text>
+          <Text style={s.condItem}>• Para confirmar reserva, contactar a GTL con al menos 7 días de anticipación al embarque.</Text>
         </View>
 
         {/* Footer */}
