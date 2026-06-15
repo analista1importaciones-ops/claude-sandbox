@@ -10,10 +10,10 @@ Font.register({
   fonts: [],
 })
 
-const NAVY = '#1e3a5f'
-const ORANGE = '#f97316'
-const LIGHT_GRAY = '#f8fafc'
-const BORDER = '#e2e8f0'
+const NAVY = '#0d2d6b'
+const BLUE = '#1a56db'
+const LIGHT_GRAY = '#f0f4ff'
+const BORDER = '#c7d7f5'
 
 const s = StyleSheet.create({
   page: { fontFamily: 'Helvetica', fontSize: 9, color: '#1e293b', padding: '30 40 40 40', backgroundColor: '#ffffff' },
@@ -24,7 +24,7 @@ const s = StyleSheet.create({
   logoName: { fontSize: 16, fontFamily: 'Helvetica-Bold', color: NAVY, letterSpacing: 0.5 },
   logoSub: { fontSize: 7.5, color: '#64748b', marginTop: 2 },
   quoteInfo: { alignItems: 'flex-end' },
-  quoteNumber: { fontSize: 14, fontFamily: 'Helvetica-Bold', color: ORANGE },
+  quoteNumber: { fontSize: 14, fontFamily: 'Helvetica-Bold', color: BLUE },
   quoteLabel: { fontSize: 7, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 2 },
   quoteDate: { fontSize: 8, color: '#475569', marginTop: 3 },
 
@@ -55,7 +55,7 @@ const s = StyleSheet.create({
   totalBox: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6, marginBottom: 16 },
   totalInner: { backgroundColor: NAVY, borderRadius: 6, padding: '10 16', flexDirection: 'row', alignItems: 'center', gap: 20, minWidth: 220 },
   totalLabel: { fontSize: 10, color: '#ffffff', fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.5 },
-  totalValue: { fontSize: 14, color: ORANGE, fontFamily: 'Helvetica-Bold' },
+  totalValue: { fontSize: 14, color: BLUE, fontFamily: 'Helvetica-Bold' },
 
   // Conditions + footer
   conditions: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderColor: BORDER, padding: '8 12', marginBottom: 14 },
@@ -208,7 +208,7 @@ export default function QuotationPdf(props: QuotationPdfProps) {
         {/* Block 2 */}
         <LineTable
           title="Bloque 2 — Gastos Locales GTL"
-          dot={ORANGE}
+          dot={BLUE}
           items={props.localCharges}
           subtotalLabel="Subtotal Gastos Locales"
           subtotal={props.localTotal}
