@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  passwordHash  String
+  role          Role     @default(OPERATOR)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  quotations    Quotation[]
+  rateSheetsCreated RateSheet[]
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+}
+
+model Carrier {
+  id           String      @id @default(cuid())
+  name         String
+  type         CarrierType
+  contactEmail String?
+  notes        String?
+  createdAt    DateTime    @default(now())
+  rateSheets   RateSheet[]
+}
+
+enum CarrierType {
+  NAVIERA
+  AGENTE
+  CONSOLIDADOR
+}
+
+model RateSheet {
+  id          String   @id @default(cuid())
+  carrierId   String
+  carrier     Carrier  @relation(fields: [carrierId], references: [id])
+  reference   String
+  sourceFile  String?
+  receivedAt  DateTime
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  rates       Rate[]
+}
+
+model Rate {
+  id              String      @id @default(cuid())
+  rateSheetId     String
+  rateSheet       RateSheet   @relation(fields: [rateSheetId], references: [id], onDelete: Cascade)
+  originCountry   String
+  originPort      String
+  destinationPort String
+  mode            ShipMode
+  currency        String      @default("USD")
+  validFrom       DateTime
+  validUntil      DateTime
+  freightRate     Decimal?    @db.Decimal(10,2)
+  thcCfs          Decimal?    @db.Decimal(10,2)
+  docFee          Decimal?    @db.Decimal(10,2)
+  vgm             Decimal?    @db.Decimal(10,2)
+  currencyFactor  Decimal?    @db.Decimal(10,2)
+  pickUp          Decimal?    @db.Decimal(10,2)
+  customsOrigin   Decimal?    @db.Decimal(10,2)
+  manifest        Decimal?    @db.Decimal(10,2)
+  overlength      Decimal?    @db.Decimal(10,2)
+  transitDaysMin  Int?
+  transitDaysMax  Int?
+  frequency       String?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  quotations      Quotation[]
+}
+
+enum ShipMode {
+  LCL
+  FCL20
+  FCL40
+  FCL40HC
+  AIR
+}
+
+model GtlCostConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  value       Decimal  @db.Decimal(10,2)
+  appliesIva  Boolean  @default(false)
+  category    CostCategory
+  updatedAt   DateTime @updatedAt
+}
+
+enum CostCategory {
+  LOCAL_CHARGES
+  THIRD_PARTY
+  INLAND_TRANSPORT
+}
+
+model InlandRoute {
+  id          String   @id @default(cuid())
+  origin      String
+  destination String
+  costUsd     Decimal  @db.Decimal(10,2)
+  notes       String?
+}
+
+model Quotation {
+  id              String   @id @default(cuid())
+  number          String   @unique
+  clientName      String
+  clientEmail     String?
+  createdById     String
+  createdBy       User     @relation(fields: [createdById], references: [id])
+  createdAt       DateTime @default(now())
+  validUntil      DateTime
+  status          QuoteStatus @default(DRAFT)
+  rateId          String?
+  rate            Rate?    @relation(fields: [rateId], references: [id])
+
+  originCountry   String
+  originPort      String
+  destinationPort String
+  incoterm        String
+  mode            ShipMode
+  cbm             Decimal  @db.Decimal(10,3)
+  grossWeightKg   Decimal? @db.Decimal(10,2)
+  productDesc     String?
+
+  freightAmount   Decimal  @db.Decimal(10,2)
+  thcCfs          Decimal  @db.Decimal(10,2) @default(0)
+  docFee          Decimal  @db.Decimal(10,2) @default(0)
+  vgm             Decimal  @db.Decimal(10,2) @default(0)
+  currencyFactor  Decimal  @db.Decimal(10,2) @default(0)
+  pickUp          Decimal  @db.Decimal(10,2) @default(0)
+  customsOrigin   Decimal  @db.Decimal(10,2) @default(0)
+  manifest        Decimal  @db.Decimal(10,2) @default(0)
+  overlength      Decimal  @db.Decimal(10,2) @default(0)
+  totalIntlTransport Decimal @db.Decimal(10,2)
+
+  logisticsService Decimal @db.Decimal(10,2) @default(0)
+  admin           Decimal  @db.Decimal(10,2) @default(0)
+  transmision     Decimal  @db.Decimal(10,2) @default(0)
+  locIsd          Decimal  @db.Decimal(10,2) @default(0)
+  subtotalLocal   Decimal  @db.Decimal(10,2)
+  ivaLocal        Decimal  @db.Decimal(10,2)
+  totalLocal      Decimal  @db.Decimal(10,2)
+
+  customsAgent    Decimal  @db.Decimal(10,2) @default(0)
+  inlandTransport Decimal  @db.Decimal(10,2) @default(0)
+  inen            Decimal  @db.Decimal(10,2) @default(0)
+  insurance       Decimal  @db.Decimal(10,2) @default(0)
+  storage         Decimal  @db.Decimal(10,2) @default(0)
+  customsDuties   Decimal  @db.Decimal(10,2) @default(0)
+  totalOthers     Decimal  @db.Decimal(10,2)
+
+  grandTotal      Decimal  @db.Decimal(10,2)
+  transitDaysMin  Int?
+  transitDaysMax  Int?
+  frequency       String?
+  notes           String?
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  EXPIRED
+}
