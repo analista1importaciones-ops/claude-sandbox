@@ -1,18 +1,61 @@
-# CLAUDE
+# GTL Rate Manager
 
-Carpeta de trabajo personal para proyectos con Claude Code.
+Sistema interno de gestión de tarifas marítimas/aéreas para **Global Trade Logistics S.A.S.** (Ecuador).
 
-## Contenido
+## Requisitos
 
-- `.claude/` — configuración y memoria del asistente
+- Node.js 18+
+- PostgreSQL 14+
 
-## Uso
+## Instalación
 
-Este directorio sirve como espacio de trabajo principal para explorar
-y colaborar con Claude Code en tareas de desarrollo.
+1. Clonar el repositorio e instalar dependencias:
 
-## Primeros pasos
+```bash
+npm install
+```
 
-1. Instala [Claude Code](https://claude.ai/code)
-2. Abre esta carpeta como directorio de trabajo
-3. Empieza a colaborar con el asistente
+2. Copiar el archivo de variables de entorno:
+
+```bash
+cp .env.example .env
+```
+
+3. Editar `.env` con sus credenciales de base de datos y generar el secreto:
+
+```bash
+openssl rand -base64 32
+```
+
+4. Generar el cliente Prisma y ejecutar migraciones:
+
+```bash
+npx prisma generate
+npx prisma migrate dev --name init
+```
+
+5. Poblar la base de datos con datos de demostración:
+
+```bash
+npm run db:seed
+```
+
+6. Iniciar el servidor de desarrollo:
+
+```bash
+npm run dev
+```
+
+Abrir [http://localhost:3000](http://localhost:3000) en el navegador.
+
+## Credenciales de acceso (demo)
+
+- **Email:** admin@gtllogistics.com
+- **Contraseña:** GTL2026admin!
+
+## Estructura del proyecto
+
+- `src/app/` — Páginas y rutas (Next.js App Router)
+- `src/components/` — Componentes reutilizables
+- `src/lib/` — Utilidades, configuración de auth y Prisma
+- `prisma/` — Schema de base de datos
