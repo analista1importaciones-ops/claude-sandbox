@@ -1,15 +1,18 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
-import { prisma } from '@/lib/prisma'
+import { prisma } from './prisma'
 
 export const authOptions: NextAuthOptions = {
+  session: {
+    strategy: 'jwt',
+  },
   providers: [
     CredentialsProvider({
       name: 'credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        password: { label: 'Contraseña', type: 'password' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -20,15 +23,14 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email },
         })
 
-        if (!user) {
-          return null
-        }
+        if (!user) return null
 
-        const isValid = await bcrypt.compare(credentials.password, user.passwordHash)
+        const passwordMatch = await bcrypt.compare(
+          credentials.password,
+          user.passwordHash
+        )
 
-        if (!isValid) {
-          return null
-        }
+        if (!passwordMatch) return null
 
         return {
           id: user.id,
@@ -39,9 +41,6 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  session: {
-    strategy: 'jwt',
-  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -52,8 +51,8 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id as string
-        ;(session.user as any).role = token.role as string
+        (session.user as any).id = token.id
+        ;(session.user as any).role = token.role
       }
       return session
     },
