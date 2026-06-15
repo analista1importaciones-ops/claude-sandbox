@@ -79,7 +79,7 @@ function calcTransporte(mode: string, city: string, cbm: number): number {
 }
 
 function calcAgenteAduana(mode: string): number {
-  return mode === 'AIR' ? 280 : 332.58
+  return mode === 'AIR' ? 277.15 : 332.58
 }
 
 function calcSeguro(fobValue: number): number {
