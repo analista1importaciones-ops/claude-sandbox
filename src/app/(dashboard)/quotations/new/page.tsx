@@ -100,6 +100,7 @@ function buildOtherCharges(mode: string, cbm: number, city: string, fobValue: nu
     { label: 'INEN', amount: 50 },
     { label: 'Seguro Todo Riesgo / Póliza', amount: calcSeguro(fobValue) },
     { label: 'Bodegaje Aprox. Patio', amount: calcBodegaje(mode, cbm) },
+    { label: 'Aranceles Aduana Ecuador', amount: 0 },
   ]
   return items
 }
