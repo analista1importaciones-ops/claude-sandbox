@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 const STATUS_TRANSITIONS: Record<string, { label: string; next: string }[]> = {
   DRAFT: [{ label: 'Marcar como Enviada', next: 'SENT' }, { label: 'Archivar', next: 'ARCHIVED' }],
@@ -10,6 +11,7 @@ const STATUS_TRANSITIONS: Record<string, { label: string; next: string }[]> = {
 }
 
 export default function QuotationActions({ quotationId, status }: { quotationId: string; status: string }) {
+
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
@@ -34,6 +36,13 @@ export default function QuotationActions({ quotationId, status }: { quotationId:
 
   return (
     <div className="flex items-center gap-2">
+      <Link href={`/quotations/${quotationId}/edit`}
+        className="flex items-center gap-1.5 px-3 py-2 border border-gtl-navy text-gtl-navy rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        Editar
+      </Link>
       <button onClick={downloadPdf}
         className="flex items-center gap-1.5 px-3 py-2 bg-gtl-orange text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
