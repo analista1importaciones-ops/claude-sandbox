@@ -61,6 +61,22 @@ const s = StyleSheet.create({
   footer: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   footerText: { fontSize: 7, color: '#94a3b8' },
   footerBold: { fontSize: 7, color: NAVY, fontFamily: 'Helvetica-Bold' },
+
+  // Page 2
+  p2header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: NAVY },
+  p2section: { marginBottom: 14 },
+  p2title: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: BORDER },
+  p2subtitle: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#334155', marginTop: 6, marginBottom: 3 },
+  p2text: { fontSize: 7.5, color: '#475569', marginBottom: 2.5, lineHeight: 1.4 },
+  p2highlight: { fontSize: 7.5, color: '#334155', fontFamily: 'Helvetica-Bold', marginBottom: 2 },
+  p2box: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderColor: BORDER, padding: '8 12', marginBottom: 10 },
+  p2row: { flexDirection: 'row', gap: 12 },
+  p2col: { flex: 1 },
+  p2bankBox: { backgroundColor: '#eff6ff', borderRadius: 4, borderWidth: 1, borderColor: '#bfdbfe', padding: '8 12', marginTop: 8 },
+  p2bankTitle: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: NAVY, marginBottom: 4 },
+  p2bankText: { fontSize: 7.5, color: '#1e40af', marginBottom: 1.5 },
+  p2warning: { backgroundColor: '#fff7ed', borderRadius: 4, borderWidth: 1, borderColor: '#fed7aa', padding: '7 10', marginBottom: 6 },
+  p2warningText: { fontSize: 7.5, color: '#92400e', lineHeight: 1.4 },
 })
 
 type LineItem = { label: string; amount: number }
@@ -92,6 +108,7 @@ interface QuotationPdfProps {
   otherTotal: number
   grandTotal: number
   notes?: string | null
+  deliveryCity?: string | null
 }
 
 const modeLabel: Record<string, string> = {
@@ -132,6 +149,7 @@ function LineTable({ title, dot, items, subtotalLabel, subtotal, currency }: {
 
 export default function QuotationPdf(props: QuotationPdfProps) {
   const qty = props.cbm ? `${props.cbm} CBM` : props.containers ? `${props.containers} contenedor${props.containers !== 1 ? 'es' : ''}` : ''
+  const destFinal = props.deliveryCity === 'UIO' ? 'Quito' : props.deliveryCity === 'OTRA' ? 'destino final' : 'Guayaquil'
 
   return (
     <Document>
@@ -236,7 +254,82 @@ export default function QuotationPdf(props: QuotationPdfProps) {
         <View style={s.footer}>
           <Text style={s.footerText}>Global Trade Logistics S.A.S. · Ecuador</Text>
           <Text style={s.footerBold}>{props.number}</Text>
-          <Text style={s.footerText}>Generado por GTL Rate Manager</Text>
+          <Text style={s.footerText}>Página 1 de 2</Text>
+        </View>
+
+      </Page>
+
+      {/* ── PÁGINA 2: Condiciones ── */}
+      <Page size="A4" style={s.page}>
+
+        {/* Header p2 */}
+        <View style={s.p2header}>
+          <View>
+            <Text style={[s.logoName, { fontSize: 13 }]}>GLOBAL TRADE LOGISTICS</Text>
+            <Text style={s.logoSub}>Agente de Carga Internacional · Ecuador</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[s.quoteNumber, { fontSize: 11 }]}>{props.number}</Text>
+            <Text style={s.logoSub}>Condiciones Comerciales</Text>
+          </View>
+        </View>
+
+        {/* 1. Alcance */}
+        <View style={s.p2section}>
+          <Text style={s.p2title}>1. Alcance del Servicio</Text>
+          <Text style={[s.p2highlight, { marginBottom: 5 }]}>Global Trade Logistics S.A.S. incluye:</Text>
+          <Text style={s.p2text}>• Transporte internacional desde {props.originPort} hasta {props.destinationPort}.</Text>
+          <Text style={s.p2text}>• Agenciamiento de aduana en Ecuador (gestión de DAI, aforos, coordinación documental).</Text>
+          <Text style={s.p2text}>• Transporte nacional desde el puerto hasta {destFinal}.</Text>
+          <Text style={s.p2text}>• Seguimiento y comunicación proactiva en cada hito (zarpe, arribo, levante, entrega).</Text>
+          <Text style={s.p2text}>• Asesoría personalizada para prevención de multas y optimización de costos.</Text>
+          <View style={[s.p2box, { marginTop: 6 }]}>
+            <Text style={[s.p2highlight, { marginBottom: 3 }]}>No incluye (pagos a terceros):</Text>
+            <Text style={s.p2text}>Tasas e impuestos SENAE, bodegajes y servicios portuarios (terminal), scanners, aforos físicos, multas o almacenajes por causas ajenas a GTL. Estos valores se cancelan directamente por el cliente a Aduana/Terminal.</Text>
+          </View>
+        </View>
+
+        {/* 2. Condiciones de pago */}
+        <View style={s.p2section}>
+          <Text style={s.p2title}>2. Condiciones de Pago</Text>
+          <View style={s.p2row}>
+            <View style={s.p2col}>
+              <Text style={s.p2subtitle}>Pagos a GTL (Nuestros Servicios)</Text>
+              <Text style={s.p2text}>• Transporte Internacional: 100% al arribar la carga al puerto.</Text>
+              <Text style={s.p2text}>• Agente de Aduana: 100% al contar con la salida autorizada.</Text>
+              <Text style={s.p2text}>• Transporte Nacional: 100% al despachar la carga al destino final.</Text>
+              <Text style={s.p2text}>• Póliza de Seguro: 100% al arribar la carga al puerto.</Text>
+            </View>
+            <View style={s.p2col}>
+              <Text style={s.p2subtitle}>Pagos Directos a Terceros</Text>
+              <Text style={s.p2text}>• Impuestos Aduana del Ecuador (SENAE): 100% al transmitir la declaración aduanera.</Text>
+              <Text style={s.p2text}>• Puerto Marítimo (terminal): 100% al facturarse bodegajes, aforos o servicios portuarios.</Text>
+            </View>
+          </View>
+          <View style={s.p2bankBox}>
+            <Text style={s.p2bankTitle}>Cuenta de Pago GTL</Text>
+            <Text style={s.p2bankText}>Banco Produbanco · RUC: 1793228976001</Text>
+            <Text style={s.p2bankText}>Cuenta Corriente: 27059115225 · Global Trade Logistics S.A.S.</Text>
+          </View>
+        </View>
+
+        {/* 3. Términos & Condiciones */}
+        <View style={s.p2section}>
+          <Text style={s.p2title}>3. Términos & Condiciones</Text>
+          <Text style={s.p2text}>• Aplica para carga general (no pesada ni sobredimensionada).</Text>
+          <Text style={s.p2text}>• La cotización está sujeta a cambios por espacio y disponibilidad de la naviera.</Text>
+          <Text style={s.p2text}>• Los tiempos de tránsito pueden variar sin previo aviso por congestión en puertos.</Text>
+          <View style={[s.p2warning, { marginTop: 6 }]}>
+            <Text style={[s.p2warningText, { fontFamily: 'Helvetica-Bold', marginBottom: 3 }]}>Cláusula de Seguridad</Text>
+            <Text style={s.p2warningText}>Global Trade Logistics S.A.S. recomienda a todos los vendedores/compradores contar con un seguro de carga adecuado que incluya el costo de la mercadería + el costo de envío. Los embarques no están asegurados a través de GTL a menos que se solicite el servicio por escrito (correo electrónico) antes de recoger la carga, mencionando el costo de la mercancía y detalle exacto del tipo de carga.</Text>
+          </View>
+        </View>
+
+        {/* Footer p2 */}
+        <View style={[s.footer, { position: 'absolute', bottom: 30, left: 40, right: 40 }]}>
+          <Text style={s.footerText}>Global Trade Logistics S.A.S. · Ecuador</Text>
+          <Text style={s.footerBold}>{props.number}</Text>
+          <Text style={s.footerText}>Página 2 de 2</Text>
         </View>
 
       </Page>
