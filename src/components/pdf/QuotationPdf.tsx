@@ -1,6 +1,9 @@
 import {
-  Document, Page, Text, View, StyleSheet, Font,
+  Document, Page, Text, View, StyleSheet, Font, Image,
 } from '@react-pdf/renderer'
+import path from 'path'
+
+const LOGO_PATH = path.join(process.cwd(), 'public', 'logo.jpg')
 
 Font.register({
   family: 'Helvetica',
@@ -158,9 +161,7 @@ export default function QuotationPdf(props: QuotationPdfProps) {
         {/* Header */}
         <View style={s.header}>
           <View style={s.logoBlock}>
-            <Text style={s.logoName}>GLOBAL TRADE LOGISTICS</Text>
-            <Text style={s.logoSub}>Agente de Carga Internacional · Ecuador</Text>
-            <Text style={s.logoSub}>analista1.importaciones@gmail.com · GTL S.A.S.</Text>
+            <Image src={LOGO_PATH} style={{ width: 90, height: 90, objectFit: 'contain' }} />
           </View>
           <View style={s.quoteInfo}>
             <Text style={s.quoteLabel}>Cotización de Flete</Text>
@@ -264,9 +265,12 @@ export default function QuotationPdf(props: QuotationPdfProps) {
 
         {/* Header p2 */}
         <View style={s.p2header}>
-          <View>
-            <Text style={[s.logoName, { fontSize: 13 }]}>GLOBAL TRADE LOGISTICS</Text>
-            <Text style={s.logoSub}>Agente de Carga Internacional · Ecuador</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Image src={LOGO_PATH} style={{ width: 40, height: 40, objectFit: 'contain' }} />
+            <View>
+              <Text style={[s.logoName, { fontSize: 11 }]}>GLOBAL TRADE LOGISTICS</Text>
+              <Text style={s.logoSub}>Agente de Carga Internacional · Ecuador</Text>
+            </View>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={[s.quoteNumber, { fontSize: 11 }]}>{props.number}</Text>
