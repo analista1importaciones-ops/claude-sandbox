@@ -155,64 +155,54 @@ model InlandRoute {
 }
 
 model Quotation {
-  id              String      @id @default(cuid())
-  number          String      @unique
-  clientName      String
-  clientEmail     String?
-  createdById     String
-  createdBy       User        @relation(fields: [createdById], references: [id])
-  createdAt       DateTime    @default(now())
-  validUntil      DateTime
-  status          QuoteStatus @default(DRAFT)
-  rateId          String?
-  rate            Rate?       @relation(fields: [rateId], references: [id])
+  id          String      @id @default(cuid())
+  number      String      @unique
+  rateId      String?
+  rate        Rate?       @relation(fields: [rateId], references: [id])
+  createdById String
+  createdBy   User        @relation(fields: [createdById], references: [id])
+  createdAt   DateTime    @default(now())
+  issueDate   DateTime
+  validUntil  DateTime
+  status      QuoteStatus @default(DRAFT)
 
-  originCountry   String
-  originPort      String
-  destinationPort String
-  incoterm        String
-  mode            ShipMode
-  cbm             Decimal     @db.Decimal(10, 3)
-  grossWeightKg   Decimal?    @db.Decimal(10, 2)
-  productDesc     String?
+  // Client
+  customerName  String
+  customerEmail String?
+  customerPhone String?
 
-  freightAmount      Decimal @db.Decimal(10, 2)
-  thcCfs             Decimal @db.Decimal(10, 2) @default(0)
-  docFee             Decimal @db.Decimal(10, 2) @default(0)
-  vgm                Decimal @db.Decimal(10, 2) @default(0)
-  currencyFactor     Decimal @db.Decimal(10, 2) @default(0)
-  pickUp             Decimal @db.Decimal(10, 2) @default(0)
-  customsOrigin      Decimal @db.Decimal(10, 2) @default(0)
-  manifest           Decimal @db.Decimal(10, 2) @default(0)
-  overlength         Decimal @db.Decimal(10, 2) @default(0)
-  totalIntlTransport Decimal @db.Decimal(10, 2)
+  // Route snapshot
+  originPort         String
+  destinationPort    String
+  originCountry      String
+  destinationCountry String?
+  mode               ShipMode
+  incoterm           String
+  currency           String   @default("USD")
+  cbm                Decimal? @db.Decimal(10, 3)
+  containers         Int?
+  grossWeightKg      Decimal? @db.Decimal(10, 2)
+  productDesc        String?
+  transitDaysMin     Int?
+  transitDaysMax     Int?
+  frequency          String?
 
-  logisticsService Decimal @db.Decimal(10, 2) @default(0)
-  admin            Decimal @db.Decimal(10, 2) @default(0)
-  transmision      Decimal @db.Decimal(10, 2) @default(0)
-  locIsd           Decimal @db.Decimal(10, 2) @default(0)
-  subtotalLocal    Decimal @db.Decimal(10, 2)
-  ivaLocal         Decimal @db.Decimal(10, 2)
-  totalLocal       Decimal @db.Decimal(10, 2)
+  // Snapshot of line items as JSON [{label: string, amount: number}]
+  intlCharges  Json
+  localCharges Json
+  otherCharges Json
 
-  customsAgent    Decimal @db.Decimal(10, 2) @default(0)
-  inlandTransport Decimal @db.Decimal(10, 2) @default(0)
-  inen            Decimal @db.Decimal(10, 2) @default(0)
-  insurance       Decimal @db.Decimal(10, 2) @default(0)
-  storage         Decimal @db.Decimal(10, 2) @default(0)
-  customsDuties   Decimal @db.Decimal(10, 2) @default(0)
-  totalOthers     Decimal @db.Decimal(10, 2)
+  // Totals
+  intlTotal  Decimal @db.Decimal(10, 2)
+  localTotal Decimal @db.Decimal(10, 2)
+  otherTotal Decimal @db.Decimal(10, 2)
+  grandTotal Decimal @db.Decimal(10, 2)
 
-  grandTotal     Decimal @db.Decimal(10, 2)
-  transitDaysMin Int?
-  transitDaysMax Int?
-  frequency      String?
-  notes          String?
+  notes String?
 }
 
 enum QuoteStatus {
   DRAFT
   SENT
-  ACCEPTED
-  EXPIRED
+  ARCHIVED
 }

@@ -109,7 +109,7 @@ export default function Sidebar() {
       {/* Footer */}
       {!collapsed && (
         <div className="px-4 py-3 border-t border-gtl-navy-light">
-          <p className="text-gray-500 text-xs">v0.1.0 — Sprint 1</p>
+          <p className="text-gray-500 text-xs">v0.3.0 — Sprint 3</p>
         </div>
       )}
     </aside>
