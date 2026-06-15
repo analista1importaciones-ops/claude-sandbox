@@ -55,7 +55,7 @@ const s = StyleSheet.create({
   totalBox: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6, marginBottom: 16 },
   totalInner: { backgroundColor: NAVY, borderRadius: 6, padding: '10 16', flexDirection: 'row', alignItems: 'center', gap: 20, minWidth: 220 },
   totalLabel: { fontSize: 10, color: '#ffffff', fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.5 },
-  totalValue: { fontSize: 14, color: BLUE, fontFamily: 'Helvetica-Bold' },
+  totalValue: { fontSize: 14, color: '#ffffff', fontFamily: 'Helvetica-Bold' },
 
   // Conditions + footer
   conditions: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderColor: BORDER, padding: '8 12', marginBottom: 14 },
