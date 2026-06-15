@@ -93,11 +93,22 @@ function calcTransporteLabel(city: string): string {
   return 'Transporte Interno - GYE'
 }
 
-function buildOtherCharges(mode: string, cbm: number, city: string, fobValue: number): LineItem[] {
+const PERMISOS = [
+  'Licencias de Importación',
+  'INEN',
+  'MIPRO',
+  'ARCSA',
+  'No Requiere Registro Sanitario',
+  'Agrocalidad',
+  'Fitosanitario',
+  'Zoosanitario',
+]
+
+function buildOtherCharges(mode: string, cbm: number, city: string, fobValue: number, permiso: string): LineItem[] {
   const items: LineItem[] = [
     { label: 'Agente de Aduana / Despacho Aduanero', amount: calcAgenteAduana(mode) },
     { label: calcTransporteLabel(city), amount: calcTransporte(mode, city, cbm) },
-    { label: 'INEN', amount: 50 },
+    { label: permiso, amount: 0 },
     { label: 'Seguro Todo Riesgo / Póliza', amount: calcSeguro(fobValue) },
     { label: 'Bodegaje Aprox. Patio', amount: calcBodegaje(mode, cbm) },
     { label: 'Aranceles Aduana Ecuador', amount: 0 },
@@ -143,18 +154,20 @@ export default function NewQuotationPage() {
   const [deliveryCity, setDeliveryCity] = useState('GYE')
   // FOB value for insurance calc
   const [fobValue, setFobValue] = useState('')
+  // Import permit type
+  const [permiso, setPermiso] = useState('Licencias de Importación')
 
   // Charge blocks
   const [intlCharges, setIntlCharges] = useState<LineItem[]>([])
   const [localCharges, setLocalCharges] = useState<LineItem[]>([])
   const [otherCharges, setOtherCharges] = useState<LineItem[]>(() =>
-    buildOtherCharges('LCL', 0, 'GYE', 0)
+    buildOtherCharges('LCL', 0, 'GYE', 0, 'Licencias de Importación')
   )
 
-  // Recompute Block 3 when mode / cbm / city / fob change
+  // Recompute Block 3 when mode / cbm / city / fob / permiso change
   useEffect(() => {
-    setOtherCharges(buildOtherCharges(mode, parseFloat(cbm) || 0, deliveryCity, parseFloat(fobValue) || 0))
-  }, [mode, cbm, deliveryCity, fobValue])
+    setOtherCharges(buildOtherCharges(mode, parseFloat(cbm) || 0, deliveryCity, parseFloat(fobValue) || 0, permiso))
+  }, [mode, cbm, deliveryCity, fobValue, permiso])
 
   // Load GTL cost configs (Block 2)
   const loadGtlConfigs = useCallback(async () => {
@@ -423,6 +436,13 @@ export default function NewQuotationPage() {
                 <option value="USD">USD</option>
               </select>
             </div>
+          </div>
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Permiso de importación <span className="text-gray-400 font-normal">— costo se ingresa manualmente en Bloque 3</span></label>
+            <select value={permiso} onChange={e => setPermiso(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy bg-white">
+              {PERMISOS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
           </div>
         </div>
 
