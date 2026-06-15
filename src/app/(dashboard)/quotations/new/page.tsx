@@ -109,7 +109,7 @@ function buildOtherCharges(mode: string, cbm: number, city: string, fobValue: nu
     { label: 'Agente de Aduana / Despacho Aduanero', amount: calcAgenteAduana(mode) },
     { label: calcTransporteLabel(city), amount: calcTransporte(mode, city, cbm) },
     { label: permiso, amount: 0 },
-    { label: 'Seguro Todo Riesgo / Póliza', amount: calcSeguro(fobValue) },
+    { label: 'Seguro Todo Riesgo / Póliza', amount: 0 },
     { label: 'Bodegaje Aprox. Patio', amount: calcBodegaje(mode, cbm) },
     { label: 'Aranceles Aduana Ecuador', amount: 0 },
   ]
