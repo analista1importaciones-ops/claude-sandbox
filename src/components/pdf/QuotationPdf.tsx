@@ -58,9 +58,9 @@ const s = StyleSheet.create({
   totalValue: { fontSize: 14, color: '#ffffff', fontFamily: 'Helvetica-Bold' },
 
   // Conditions + footer
-  conditions: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderColor: BORDER, padding: '8 12', marginBottom: 14 },
-  condTitle: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#475569', textTransform: 'uppercase', marginBottom: 5 },
-  condItem: { fontSize: 7.5, color: '#64748b', marginBottom: 2 },
+  conditions: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '8 12', marginBottom: 14 },
+  condTitle: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', marginBottom: 5 },
+  condItem: { fontSize: 7.5, color: '#334155', marginBottom: 2.5 },
   footer: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   footerText: { fontSize: 7, color: '#94a3b8' },
   footerBold: { fontSize: 7, color: NAVY, fontFamily: 'Helvetica-Bold' },
@@ -293,14 +293,14 @@ export default function QuotationPdf(props: QuotationPdfProps) {
               <Text style={s.p2text}>• Asesoría y seguimiento en cada etapa del proceso</Text>
             </View>
             {/* Cliente paga directo */}
-            <View style={[s.p2col, { backgroundColor: '#fef9ec', borderRadius: 4, borderWidth: 1, borderColor: '#fde68a', padding: '8 10' }]}>
-              <Text style={[s.p2subtitle, { color: '#92400e', marginTop: 0, marginBottom: 5 }]}>EL CLIENTE CANCELA DIRECTAMENTE A:</Text>
-              <Text style={[s.p2text, { color: '#78350f', fontFamily: 'Helvetica-Bold', marginBottom: 3 }]}>SENAE (Aduana Ecuador):</Text>
-              <Text style={[s.p2text, { color: '#78350f' }]}>• DAI · FODINFA · ICE · IVA importación</Text>
-              <Text style={[s.p2text, { color: '#78350f', marginTop: 3, marginBottom: 3, fontFamily: 'Helvetica-Bold' }]}>Terminal / Puerto:</Text>
-              <Text style={[s.p2text, { color: '#78350f' }]}>• Bodegajes y servicios portuarios</Text>
-              <Text style={[s.p2text, { color: '#78350f' }]}>• Scanners y aforos físicos</Text>
-              <Text style={[s.p2text, { color: '#78350f', marginTop: 5, lineHeight: 1.5 }]}>Estos valores NO pasan por GTL. GTL calcula los montos y los informa con anticipación para que el cliente los cancele directamente.</Text>
+            <View style={[s.p2col, { backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: '#cbd5e1', borderLeftColor: '#475569', padding: '8 10' }]}>
+              <Text style={[s.p2subtitle, { color: '#1e293b', marginTop: 0, marginBottom: 5 }]}>EL CLIENTE PAGA DIRECTAMENTE A:</Text>
+              <Text style={[s.p2text, { color: '#1e293b', fontFamily: 'Helvetica-Bold', marginBottom: 3 }]}>SENAE — Aduana Ecuador:</Text>
+              <Text style={[s.p2text, { color: '#334155' }]}>• DAI · FODINFA · ICE · IVA importación</Text>
+              <Text style={[s.p2text, { color: '#1e293b', marginTop: 4, marginBottom: 3, fontFamily: 'Helvetica-Bold' }]}>Terminal / Puerto marítimo:</Text>
+              <Text style={[s.p2text, { color: '#334155' }]}>• Bodegajes y servicios portuarios</Text>
+              <Text style={[s.p2text, { color: '#334155' }]}>• Scanners y aforos físicos</Text>
+              <Text style={[s.p2text, { color: '#475569', marginTop: 5, lineHeight: 1.5, fontFamily: 'Helvetica-Oblique' }]}>Nota: GTL calcula estos valores con anticipación e informa al cliente. El pago siempre es directo a la entidad correspondiente, nunca a GTL.</Text>
             </View>
           </View>
         </View>
@@ -347,7 +347,7 @@ export default function QuotationPdf(props: QuotationPdfProps) {
             ].map(([svc, who, when], i) => (
               <View key={i} style={{ flexDirection: 'row', padding: '4 10', backgroundColor: i % 2 === 1 ? LIGHT_GRAY : '#ffffff', borderTopWidth: 1, borderTopColor: BORDER }}>
                 <Text style={[s.p2text, { flex: 1, marginBottom: 0 }]}>{svc}</Text>
-                <Text style={[s.p2text, { width: 80, marginBottom: 0, fontFamily: who === 'GTL' ? 'Helvetica' : 'Helvetica-Bold', color: who === 'GTL' ? '#334155' : '#92400e' }]}>{who}</Text>
+                <Text style={[s.p2text, { width: 80, marginBottom: 0, fontFamily: 'Helvetica-Bold', color: who === 'GTL' ? NAVY : '#b91c1c' }]}>{who}</Text>
                 <Text style={[s.p2text, { width: 130, marginBottom: 0 }]}>{when}</Text>
               </View>
             ))}
