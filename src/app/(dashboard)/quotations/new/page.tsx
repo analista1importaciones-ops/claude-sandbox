@@ -392,23 +392,49 @@ export default function NewQuotationPage() {
         {/* Embarque */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase mb-4">Datos del embarque</h2>
+          {/* Datalists for port/country suggestions */}
+          <datalist id="origin-ports">
+            <option value="NINGBO" /><option value="SHANGHAI" /><option value="SHENZHEN" />
+            <option value="QINGDAO" /><option value="GUANGZHOU" /><option value="TIANJIN" />
+            <option value="XIAMEN" /><option value="YANTIAN" /><option value="NANSHA" />
+            <option value="BUSAN" /><option value="TOKYO" /><option value="OSAKA" />
+            <option value="SINGAPORE" /><option value="PORT KLANG" /><option value="JAKARTA" />
+            <option value="HO CHI MINH" /><option value="MUMBAI" /><option value="CHENNAI" />
+            <option value="ISTANBUL" /><option value="BARCELONA" /><option value="VALENCIA" />
+            <option value="HAMBURG" /><option value="ROTTERDAM" /><option value="ANTWERP" />
+            <option value="MIAMI" /><option value="LOS ANGELES" /><option value="NEW YORK" />
+            <option value="HOUSTON" /><option value="SANTOS" /><option value="BUENOS AIRES" />
+          </datalist>
+          <datalist id="dest-ports">
+            <option value="GYE" /><option value="GUAYAQUIL" /><option value="MANTA" />
+          </datalist>
+          <datalist id="origin-countries">
+            <option value="China" /><option value="Estados Unidos" /><option value="España" />
+            <option value="Alemania" /><option value="Italia" /><option value="Francia" />
+            <option value="Turquía" /><option value="Corea del Sur" /><option value="Japón" />
+            <option value="Singapur" /><option value="India" /><option value="Vietnam" />
+            <option value="Malasia" /><option value="Indonesia" /><option value="Brasil" />
+            <option value="Colombia" /><option value="México" /><option value="Países Bajos" />
+            <option value="Bélgica" /><option value="Reino Unido" /><option value="Portugal" />
+          </datalist>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Puerto origen *</label>
               <input value={originPort} onChange={e => setOriginPort(e.target.value.toUpperCase())} required
-                placeholder="NINGBO"
+                list="origin-ports" placeholder="Ej: NINGBO"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Puerto destino *</label>
               <input value={destinationPort} onChange={e => setDestinationPort(e.target.value.toUpperCase())} required
-                placeholder="GYE"
+                list="dest-ports" placeholder="Ej: GYE"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">País origen</label>
               <input value={originCountry} onChange={e => setOriginCountry(e.target.value)}
-                placeholder="China"
+                list="origin-countries" placeholder="Ej: China"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gtl-navy" />
             </div>
             <div>
