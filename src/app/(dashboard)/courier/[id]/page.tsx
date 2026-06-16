@@ -23,7 +23,7 @@ export default async function CourierDetailPage({ params }: { params: { id: stri
   })
   if (!q) notFound()
 
-  const options = (q.options as CourierOption[]) ?? []
+  const options = (q.options as unknown as CourierOption[]) ?? []
 
   return (
     <div className="max-w-3xl mx-auto">
