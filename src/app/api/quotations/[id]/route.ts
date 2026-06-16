@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { sendStatusEmail } from '@/lib/email'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -28,6 +29,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       where: { id: params.id },
       data: { status: body.status },
     })
+    if (q.customerEmail) {
+      sendStatusEmail({
+        to: q.customerEmail,
+        customerName: q.customerName,
+        quotationNumber: q.number,
+        status: body.status,
+        originPort: q.originPort,
+        destinationPort: q.destinationPort,
+      })
+    }
     return NextResponse.json(q)
   }
 
