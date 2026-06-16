@@ -122,6 +122,14 @@ function buildIntlTemplate(incoterm: string): LineItem[] {
   return [{ label: 'Ocean Freight', amount: 0 }]
 }
 
+const DEFAULT_LOCAL_CHARGES: LineItem[] = [
+  { label: 'Logistics Services', amount: 225 },
+  { label: 'Admin', amount: 170 },
+  { label: 'Trasmision', amount: 127 },
+  { label: 'Manejo ISD', amount: 0 },
+  { label: 'IVA', amount: 0 },
+]
+
 function buildOtherCharges(mode: string, cbm: number, city: string, fobValue: number, permiso: string): LineItem[] {
   const items: LineItem[] = [
     { label: 'Agente de Aduana / Despacho Aduanero', amount: calcAgenteAduana(mode) },
@@ -177,7 +185,7 @@ export default function NewQuotationPage() {
 
   // Charge blocks
   const [intlCharges, setIntlCharges] = useState<LineItem[]>([])
-  const [localCharges, setLocalCharges] = useState<LineItem[]>([])
+  const [localCharges, setLocalCharges] = useState<LineItem[]>(DEFAULT_LOCAL_CHARGES)
   const [otherCharges, setOtherCharges] = useState<LineItem[]>(() =>
     buildOtherCharges('LCL', 0, 'GYE', 0, 'Licencias de Importación')
   )
@@ -187,22 +195,21 @@ export default function NewQuotationPage() {
     setOtherCharges(buildOtherCharges(mode, parseFloat(cbm) || 0, deliveryCity, parseFloat(fobValue) || 0, permiso))
   }, [mode, cbm, deliveryCity, fobValue, permiso])
 
-  // Load GTL cost configs (Block 2)
+  // Load GTL cost configs (Block 2) — fallback to defaults if API unavailable
   const loadGtlConfigs = useCallback(async () => {
     try {
       const res = await fetch('/api/gtl-costs')
       if (res.ok) {
         const configs: GtlConfig[] = await res.json()
-        setLocalCharges(configs.map(c => ({ label: c.label, amount: c.value })))
+        if (configs.length > 0) {
+          setLocalCharges(configs.map(c => ({ label: c.label, amount: c.value })))
+          return
+        }
       }
     } catch {
-      setLocalCharges([
-        { label: 'Servicio logístico GTL', amount: 225 },
-        { label: 'Admisión', amount: 170 },
-        { label: 'Transmisión', amount: 115 },
-        { label: 'Loc / ISD', amount: 67 },
-      ])
+      // fall through to defaults
     }
+    setLocalCharges([...DEFAULT_LOCAL_CHARGES])
   }, [])
 
   // Load rate if rateId provided
