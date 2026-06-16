@@ -166,7 +166,7 @@ model Quotation {
   createdAt   DateTime    @default(now())
   issueDate   DateTime
   validUntil  DateTime
-  status      QuoteStatus @default(DRAFT)
+  status      QuoteStatus @default(BORRADOR)
 
   // Client
   customerName  String
@@ -204,9 +204,15 @@ model Quotation {
 }
 
 enum QuoteStatus {
-  DRAFT
-  SENT
-  ARCHIVED
+  BORRADOR
+  ENVIADA
+  APROBADA
+  EN_TRANSITO
+  ARRIBO
+  EN_ADUANA
+  NACIONALIZACION
+  ENTREGADA
+  RECHAZADA
 }
 
 model CourierQuotation {

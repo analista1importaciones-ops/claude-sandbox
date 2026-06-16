@@ -4,12 +4,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import QuotationActions from './QuotationActions'
-
-const statusConfig = {
-  DRAFT: { label: 'Borrador', bg: 'bg-gray-100', text: 'text-gray-700' },
-  SENT: { label: 'Enviada', bg: 'bg-blue-100', text: 'text-blue-700' },
-  ARCHIVED: { label: 'Archivada', bg: 'bg-slate-100', text: 'text-slate-600' },
-}
+import QuotationStatusBadge from '@/components/QuotationStatusBadge'
+import QuotationTimeline from '@/components/QuotationTimeline'
 
 const modeLabels: Record<string, string> = {
   LCL: 'LCL', FCL20: 'FCL 20GP', FCL40: 'FCL 40GP', FCL40HC: 'FCL 40HQ', AIR: 'Aéreo',
@@ -30,7 +26,6 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
   })
   if (!q) notFound()
 
-  const sc = statusConfig[q.status as keyof typeof statusConfig] ?? statusConfig.DRAFT
   const intlCharges = q.intlCharges as LineItem[]
   const localCharges = q.localCharges as LineItem[]
   const otherCharges = q.otherCharges as LineItem[]
@@ -50,7 +45,7 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl font-bold text-gray-900 font-mono">{q.number}</h1>
-              <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${sc.bg} ${sc.text}`}>{sc.label}</span>
+              <QuotationStatusBadge status={q.status} />
             </div>
             <p className="text-gray-500 text-sm mt-1">{q.customerName} · {q.originPort} → {q.destinationPort} · {modeLabels[q.mode] ?? q.mode}</p>
           </div>
@@ -82,6 +77,12 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
             Tarifa base: <Link href={`/rates/${q.rate.id}`} className="text-gtl-navy hover:underline">{q.rate.rateSheet.carrier.name} · {q.rate.rateSheet.reference}</Link>
           </div>
         )}
+      </div>
+
+      {/* Status Timeline */}
+      <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 mb-4">
+        <h2 className="text-xs font-semibold text-gray-400 uppercase mb-1">Progreso del envío</h2>
+        <QuotationTimeline status={q.status} />
       </div>
 
       {/* Client */}

@@ -3,27 +3,37 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-
-const statusConfig = {
-  DRAFT: { label: 'Borrador', bg: 'bg-gray-100', text: 'text-gray-600' },
-  SENT: { label: 'Enviada', bg: 'bg-blue-100', text: 'text-blue-700' },
-  ARCHIVED: { label: 'Archivada', bg: 'bg-slate-100', text: 'text-slate-500' },
-}
+import QuotationStatusBadge from '@/components/QuotationStatusBadge'
 
 const modeLabels: Record<string, string> = {
   LCL: 'LCL', FCL20: 'FCL 20GP', FCL40: 'FCL 40GP', FCL40HC: 'FCL 40HQ', AIR: 'Aéreo',
 }
 
+const STATUS_TABS = [
+  { key: 'all',             label: 'Todas',           filter: undefined             },
+  { key: 'borrador',        label: 'Borrador',         filter: 'BORRADOR'            },
+  { key: 'enviada',         label: 'Enviadas',         filter: 'ENVIADA'             },
+  { key: 'aprobada',        label: 'Aprobadas',        filter: 'APROBADA'            },
+  { key: 'en_transito',     label: 'En Tránsito',      filter: 'EN_TRANSITO'         },
+  { key: 'arribo',          label: 'Arribo',           filter: 'ARRIBO'              },
+  { key: 'en_aduana',       label: 'En Aduana',        filter: 'EN_ADUANA'           },
+  { key: 'nacionalizacion', label: 'Nacionalización',  filter: 'NACIONALIZACION'     },
+  { key: 'entregada',       label: 'Entregadas',       filter: 'ENTREGADA'           },
+  { key: 'rechazada',       label: 'Rechazadas',       filter: 'RECHAZADA'           },
+]
+
 export default async function QuotationsPage({ searchParams }: { searchParams: { status?: string; search?: string } }) {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/login')
 
-  const statusFilter = searchParams.status?.toUpperCase()
+  const activeTab = searchParams.status ?? 'all'
   const search = searchParams.search
+
+  const tab = STATUS_TABS.find(t => t.key === activeTab) ?? STATUS_TABS[0]
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {}
-  if (statusFilter && statusFilter !== 'ALL') where.status = statusFilter
+  if (tab.filter) where.status = tab.filter
   if (search) {
     where.OR = [
       { customerName: { contains: search, mode: 'insensitive' } },
@@ -33,26 +43,10 @@ export default async function QuotationsPage({ searchParams }: { searchParams: {
     ]
   }
 
-  const [quotations, counts] = await Promise.all([
+  const [quotations, total] = await Promise.all([
     prisma.quotation.findMany({ where, orderBy: { createdAt: 'desc' }, take: 100 }),
-    Promise.all([
-      prisma.quotation.count(),
-      prisma.quotation.count({ where: { status: 'DRAFT' } }),
-      prisma.quotation.count({ where: { status: 'SENT' } }),
-      prisma.quotation.count({ where: { status: 'ARCHIVED' } }),
-    ]),
+    prisma.quotation.count(),
   ])
-
-  const [total, drafts, sent, archived] = counts
-
-  const tabs = [
-    { key: 'all', label: 'Todas', count: total },
-    { key: 'draft', label: 'Borrador', count: drafts },
-    { key: 'sent', label: 'Enviadas', count: sent },
-    { key: 'archived', label: 'Archivadas', count: archived },
-  ]
-
-  const activeTab = searchParams.status ?? 'all'
 
   return (
     <div>
@@ -69,10 +63,10 @@ export default async function QuotationsPage({ searchParams }: { searchParams: {
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="flex items-center justify-between px-4 border-b border-gray-100 flex-wrap gap-2">
           <div className="flex overflow-x-auto">
-            {tabs.map(tab => (
+            {STATUS_TABS.map(tab => (
               <Link key={tab.key} href={`/quotations?status=${tab.key}${search ? `&search=${search}` : ''}`}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.key ? 'border-gtl-navy text-gtl-navy' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                {tab.label} <span className="ml-1 text-xs opacity-60">({tab.count})</span>
+                className={`px-3 py-3 text-xs font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.key ? 'border-gtl-navy text-gtl-navy' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                {tab.label}
               </Link>
             ))}
           </div>
@@ -107,25 +101,22 @@ export default async function QuotationsPage({ searchParams }: { searchParams: {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {quotations.map(q => {
-                  const sc = statusConfig[q.status as keyof typeof statusConfig] ?? statusConfig.DRAFT
-                  return (
-                    <tr key={q.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs text-gtl-navy font-semibold">{q.number}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{q.customerName}</td>
-                      <td className="px-4 py-3 text-gray-700">{q.originPort} → {q.destinationPort}</td>
-                      <td className="px-4 py-3 text-gray-500">{modeLabels[q.mode] ?? q.mode}</td>
-                      <td className="px-4 py-3 text-right font-mono font-semibold text-gray-900">${Number(q.grandTotal).toFixed(2)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${sc.bg} ${sc.text}`}>{sc.label}</span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">{q.issueDate.toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                      <td className="px-4 py-3">
-                        <Link href={`/quotations/${q.id}`} className="text-gtl-navy text-xs font-medium hover:underline">Ver →</Link>
-                      </td>
-                    </tr>
-                  )
-                })}
+                {quotations.map(q => (
+                  <tr key={q.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 font-mono text-xs text-gtl-navy font-semibold">{q.number}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">{q.customerName}</td>
+                    <td className="px-4 py-3 text-gray-700">{q.originPort} → {q.destinationPort}</td>
+                    <td className="px-4 py-3 text-gray-500">{modeLabels[q.mode] ?? q.mode}</td>
+                    <td className="px-4 py-3 text-right font-mono font-semibold text-gray-900">${Number(q.grandTotal).toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <QuotationStatusBadge status={q.status} />
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 text-xs">{q.issueDate.toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/quotations/${q.id}`} className="text-gtl-navy text-xs font-medium hover:underline">Ver →</Link>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

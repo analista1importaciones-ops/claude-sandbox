@@ -40,10 +40,6 @@ export default function QuotationActions({ quotationId, status }: { quotationId:
     window.open(`/api/quotations/${quotationId}/pdf`, '_blank')
   }
 
-  function openProforma() {
-    window.open(`/api/quotations/${quotationId}/proforma`, '_blank')
-  }
-
   return (
     <div className="flex items-center gap-2">
       <Link href={`/quotations/${quotationId}/edit`}
@@ -60,14 +56,6 @@ export default function QuotationActions({ quotationId, status }: { quotationId:
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
         </svg>
         Descargar PDF
-      </button>
-
-      <button onClick={openProforma}
-        className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-        </svg>
-        Proforma PDF
       </button>
 
       {/* Status dropdown */}
