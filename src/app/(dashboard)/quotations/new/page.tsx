@@ -46,40 +46,41 @@ function daysFromNow(n: number) { const d = new Date(); d.setDate(d.getDate() + 
 
 // ── Tarifas locales automáticas ──────────────────────────────────────────────
 
-function calcBodegaje(mode: string, cbm: number): number {
-  if (mode === 'FCL20') return 450
-  if (mode === 'FCL40' || mode === 'FCL40HC') return 550
-  // LCL / AIR por CBM
-  if (cbm <= 2) return 100
-  if (cbm <= 3) return 120
-  if (cbm <= 4) return 180
-  if (cbm <= 5) return 290
-  if (cbm <= 10) return 350
-  return 450
+function calcBodegaje(mode: string, cbm: number, catalog: Record<string, number>): number {
+  const c = catalog
+  if (mode === 'FCL20') return c.b3_bodegaje_fcl20 ?? 450
+  if (mode === 'FCL40' || mode === 'FCL40HC') return c.b3_bodegaje_fcl40 ?? 550
+  if (cbm <= 2) return c.b3_bodegaje_0_2cbm ?? 100
+  if (cbm <= 3) return c.b3_bodegaje_0_3cbm ?? 120
+  if (cbm <= 4) return c.b3_bodegaje_0_4cbm ?? 180
+  if (cbm <= 5) return c.b3_bodegaje_0_5cbm ?? 290
+  if (cbm <= 10) return c.b3_bodegaje_0_10cbm ?? 350
+  return c.b3_bodegaje_10pcbm ?? 450
 }
 
-function calcTransporte(mode: string, city: string, cbm: number): number {
+function calcTransporte(mode: string, city: string, cbm: number, catalog: Record<string, number>): number {
+  const c = catalog
   if (city === 'UIO') {
-    if (mode === 'FCL20') return 600
-    if (mode === 'FCL40' || mode === 'FCL40HC') return 700
-    return 350 // LCL / AIR
+    if (mode === 'FCL20') return c.b3_trans_uio_fcl20 ?? 600
+    if (mode === 'FCL40' || mode === 'FCL40HC') return c.b3_trans_uio_fcl40 ?? 700
+    return c.b3_trans_uio_lcl ?? 350
   }
   if (city === 'OTRA') {
-    // Transporte Nacional por CBM
-    if (mode === 'FCL20') return 750
-    if (mode === 'FCL40' || mode === 'FCL40HC') return 800
-    // LCL/AIR por M3 (tabla exacta, $50 por M3 adicional)
+    if (mode === 'FCL20') return c.b3_trans_otra_fcl20 ?? 750
+    if (mode === 'FCL40' || mode === 'FCL40HC') return c.b3_trans_otra_fcl40 ?? 800
     const m = Math.ceil(cbm) || 1
-    return Math.min(140 + (m - 1) * 50, 590)
+    const base = c.b3_trans_otra_1cbm ?? 140
+    const extra = c.b3_trans_otra_cbm_extra ?? 50
+    return Math.min(base + (m - 1) * extra, 590)
   }
-  // GYE
-  if (mode === 'FCL20') return 250
-  if (mode === 'FCL40' || mode === 'FCL40HC') return 300
-  return 100 // LCL / AIR
+  if (mode === 'FCL20') return c.b3_trans_gye_fcl20 ?? 250
+  if (mode === 'FCL40' || mode === 'FCL40HC') return c.b3_trans_gye_fcl40 ?? 300
+  return c.b3_trans_gye_lcl ?? 100
 }
 
-function calcAgenteAduana(mode: string): number {
-  return mode === 'AIR' ? 277.15 : 332.58
+function calcAgenteAduana(mode: string, catalog: Record<string, number>): number {
+  const c = catalog
+  return mode === 'AIR' ? (c.b3_agente_aereo ?? 277.15) : (c.b3_agente_maritimo ?? 332.58)
 }
 
 function calcSeguro(fobValue: number): number {
@@ -130,13 +131,13 @@ const DEFAULT_LOCAL_CHARGES: LineItem[] = [
   { label: 'IVA', amount: 0 },
 ]
 
-function buildOtherCharges(mode: string, cbm: number, city: string, fobValue: number, permiso: string): LineItem[] {
+function buildOtherCharges(mode: string, cbm: number, city: string, fobValue: number, permiso: string, catalog: Record<string, number>): LineItem[] {
   const items: LineItem[] = [
-    { label: 'Agente de Aduana / Despacho Aduanero', amount: calcAgenteAduana(mode) },
-    { label: calcTransporteLabel(city), amount: calcTransporte(mode, city, cbm) },
+    { label: 'Agente de Aduana / Despacho Aduanero', amount: calcAgenteAduana(mode, catalog) },
+    { label: calcTransporteLabel(city), amount: calcTransporte(mode, city, cbm, catalog) },
     { label: permiso, amount: 0 },
     { label: 'Seguro Todo Riesgo / Póliza', amount: 0 },
-    { label: 'Bodegaje Aprox. Patio', amount: calcBodegaje(mode, cbm) },
+    { label: 'Bodegaje Aprox. Patio', amount: calcBodegaje(mode, cbm, catalog) },
     { label: 'Aranceles Aduana Ecuador', amount: 0 },
   ]
   return items
@@ -149,6 +150,7 @@ export default function NewQuotationPage() {
   const searchParams = useSearchParams()
   const rateId = searchParams.get('rateId')
 
+  const [catalog, setCatalog] = useState<Record<string, number>>({})
   const [rate, setRate] = useState<RateData | null>(null)
   const [rateStatus, setRateStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -187,13 +189,26 @@ export default function NewQuotationPage() {
   const [intlCharges, setIntlCharges] = useState<LineItem[]>([])
   const [localCharges, setLocalCharges] = useState<LineItem[]>(DEFAULT_LOCAL_CHARGES)
   const [otherCharges, setOtherCharges] = useState<LineItem[]>(() =>
-    buildOtherCharges('LCL', 0, 'GYE', 0, 'Licencias de Importación')
+    buildOtherCharges('LCL', 0, 'GYE', 0, 'Licencias de Importación', {})
   )
 
-  // Recompute Block 3 when mode / cbm / city / fob / permiso change
+  // Recompute Block 3 when mode / cbm / city / fob / permiso / catalog change
   useEffect(() => {
-    setOtherCharges(buildOtherCharges(mode, parseFloat(cbm) || 0, deliveryCity, parseFloat(fobValue) || 0, permiso))
-  }, [mode, cbm, deliveryCity, fobValue, permiso])
+    setOtherCharges(buildOtherCharges(mode, parseFloat(cbm) || 0, deliveryCity, parseFloat(fobValue) || 0, permiso, catalog))
+  }, [mode, cbm, deliveryCity, fobValue, permiso, catalog])
+
+  // Load catalog prices on mount
+  useEffect(() => {
+    fetch('/api/catalog')
+      .then(r => r.json())
+      .then(data => {
+        const map: Record<string, number> = {}
+        ;[...data.localCharges, ...data.agente, ...data.bodegaje, ...data.permisos, ...data.transport]
+          .forEach((e: {key: string, value: number}) => { map[e.key] = e.value })
+        setCatalog(map)
+      })
+      .catch(() => {})
+  }, [])
 
   // Load GTL cost configs (Block 2) — fallback to defaults if API unavailable
   const loadGtlConfigs = useCallback(async () => {
