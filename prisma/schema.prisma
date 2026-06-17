@@ -19,6 +19,8 @@ model User {
   quotations          Quotation[]
   courierQuotations   CourierQuotation[]
   rateSheetsCreated   RateSheet[]
+  assignedContacts    Contact[]
+  activities          Activity[]
 }
 
 enum Role {
@@ -63,20 +65,15 @@ model Rate {
   id              String    @id @default(cuid())
   rateSheetId     String
   rateSheet       RateSheet @relation(fields: [rateSheetId], references: [id], onDelete: Cascade)
-
   originCountry   String
   originPort      String
   destinationPort String
   mode            ShipMode
   currency        String    @default("USD")
-
   validFrom       DateTime
   validUntil      DateTime
-
   freightRate     Decimal?  @db.Decimal(10, 2)
   freightUnit     String?
-
-  // Surcharges — all optional
   baf             Decimal?  @db.Decimal(10, 2)
   caf             Decimal?  @db.Decimal(10, 2)
   isps            Decimal?  @db.Decimal(10, 2)
@@ -101,17 +98,14 @@ model Rate {
   insurance       Decimal?  @db.Decimal(10, 2)
   otherCharges    Decimal?  @db.Decimal(10, 2)
   otherChargesDesc String?
-
   transitDaysMin  Int?
   transitDaysMax  Int?
   frequency       String?
   commodity       String?
   notes           String?
-
   replacedById    String?
   replacedBy      Rate?     @relation("RateReplacement", fields: [replacedById], references: [id])
   replaces        Rate[]    @relation("RateReplacement")
-
   createdAt       DateTime  @default(now())
   quotations      Quotation[]
 }
@@ -167,13 +161,9 @@ model Quotation {
   issueDate   DateTime
   validUntil  DateTime
   status      QuoteStatus @default(BORRADOR)
-
-  // Client
   customerName  String
   customerEmail String?
   customerPhone String?
-
-  // Route snapshot
   originPort         String
   destinationPort    String
   originCountry      String
@@ -188,19 +178,15 @@ model Quotation {
   transitDaysMin     Int?
   transitDaysMax     Int?
   frequency          String?
-
-  // Snapshot of line items as JSON [{label: string, amount: number}]
   intlCharges  Json
   localCharges Json
   otherCharges Json
-
-  // Totals
   intlTotal  Decimal @db.Decimal(10, 2)
   localTotal Decimal @db.Decimal(10, 2)
   otherTotal Decimal @db.Decimal(10, 2)
   grandTotal Decimal @db.Decimal(10, 2)
-
   notes String?
+  deals Deal[]
 }
 
 enum QuoteStatus {
@@ -221,13 +207,9 @@ model CourierQuotation {
   createdById   String
   createdBy     User     @relation(fields: [createdById], references: [id])
   createdAt     DateTime @default(now())
-
-  // Client
   customerName  String
   customerEmail String?
   customerPhone String?
-
-  // Shipment
   originCountry      String
   destinationCountry String
   weightKg           Decimal  @db.Decimal(10, 3)
@@ -238,15 +220,10 @@ model CourierQuotation {
   chargeableWeightKg Decimal? @db.Decimal(10, 3)
   productDesc        String?
   declaredValueUsd   Decimal? @db.Decimal(12, 2)
-
-  // Courier options quoted (JSON array of {carrier, service, priceUsd, transitDays})
   options        Json     @default("[]")
-
-  // Selected option
   selectedCarrier  String?
   selectedService  String?
   selectedPriceUsd Decimal? @db.Decimal(10, 2)
-
   status    CourierStatus @default(BORRADOR)
   notes     String?
   issueDate DateTime      @default(now())
@@ -259,4 +236,84 @@ enum CourierStatus {
   EN_TRANSITO
   ENTREGADA
   RECHAZADA
+}
+
+enum LeadSource {
+  PAUTA
+  REFERIDO
+  WEB
+  LLAMADA
+  FERIA
+  OTRO
+}
+
+enum ServiceLabel {
+  COURIER
+  NACIONALIZACION
+  TRANSPORTE_PESADO
+  SEGURO_CARGA
+  OTRO
+}
+
+enum PipelineStage {
+  PAUTA
+  CONTACTADO
+  COTIZADO
+  SEGUIMIENTO
+  NEGOCIANDO
+  CERRADO_GANADO
+  PERDIDO
+}
+
+enum ActivityType {
+  LLAMADA
+  WHATSAPP
+  EMAIL
+  NOTA
+  REUNION
+}
+
+model Contact {
+  id             String       @id @default(cuid())
+  name           String
+  company        String?
+  email          String?
+  phone          String?
+  source         LeadSource   @default(OTRO)
+  serviceLabel   ServiceLabel @default(OTRO)
+  assignedToId   String?
+  assignedTo     User?        @relation(fields: [assignedToId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deals          Deal[]
+  activities     Activity[]
+}
+
+model Deal {
+  id               String        @id @default(cuid())
+  contactId        String
+  contact          Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  stage            PipelineStage @default(PAUTA)
+  estimatedValue   Decimal?      @db.Decimal(12, 2)
+  currency         String        @default("USD")
+  estimatedCloseAt DateTime?
+  quotationId      String?
+  quotation        Quotation?    @relation(fields: [quotationId], references: [id])
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  activities       Activity[]
+}
+
+model Activity {
+  id          String       @id @default(cuid())
+  type        ActivityType @default(NOTA)
+  text        String
+  contactId   String?
+  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  dealId      String?
+  deal        Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
 }
