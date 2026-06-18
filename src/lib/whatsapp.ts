@@ -42,6 +42,21 @@ function getMediaType(type: string) {
   return 'file'
 }
 
+function getPhoneJidFromMessage(msg: any) {
+  const candidates = [
+    msg.key?.remoteJidAlt,
+    msg.key?.participantAlt,
+    msg.key?.participant,
+    msg.key?.remoteJid,
+  ].filter(Boolean) as string[]
+  return candidates.find(jid => jid.endsWith('@s.whatsapp.net')) ?? null
+}
+
+function phoneFromJid(jid: string | null | undefined) {
+  if (!jid?.endsWith('@s.whatsapp.net')) return null
+  return jid.replace('@s.whatsapp.net', '')
+}
+
 async function saveMedia(msg: any, msgType: string, messageId: string): Promise<{ mediaUrl: string; mediaType: string } | null> {
   try {
     const buffer = await downloadMediaMessage(msg, 'buffer', {}) as Buffer
@@ -78,6 +93,18 @@ export async function startWhatsApp() {
 
     sock.ev.on('creds.update', saveCreds)
 
+    sock.ev.on('lid-mapping.update' as any, async ({ lid, pn }: { lid: string; pn: string }) => {
+      if (!lid || !pn) return
+      await prisma.waConversation.updateMany({
+        where: { remoteJid: lid },
+        data: { phoneJid: pn },
+      }).catch(() => {})
+      await prisma.whatsAppMessage.updateMany({
+        where: { remoteJid: lid },
+        data: { phoneJid: pn },
+      }).catch(() => {})
+    })
+
     sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
       if (qr) { global.__waQr = qr; global.__waStatus = 'connecting' }
       if (connection === 'open') { global.__waQr = null; global.__waStatus = 'connected' }
@@ -94,7 +121,8 @@ export async function startWhatsApp() {
         if (!msg.message) continue
         const jid = msg.key.remoteJid!
         if (jid.includes('status@broadcast') || jid.includes('@broadcast')) continue
-        const phone = jid.replace('@s.whatsapp.net', '').replace('@g.us', '')
+        const phoneJid = getPhoneJidFromMessage(msg)
+        const phone = phoneFromJid(phoneJid) ?? phoneFromJid(jid) ?? jid.replace('@g.us', '').replace('@lid', '')
         const pushName = msg.pushName || null
         const fromMe = msg.key.fromMe ?? false
         const msgType = Object.keys(msg.message)[0]
@@ -112,9 +140,9 @@ export async function startWhatsApp() {
 
         // Auto-create or find contact from pushName
         let contact = await prisma.contact.findFirst({ where: { phone: { contains: phone.slice(-8) } } })
-        if (!contact && !fromMe && pushName && jid.endsWith('@s.whatsapp.net')) {
+        if (!contact && !fromMe && pushName && phoneJid) {
           contact = await prisma.contact.create({
-            data: { name: pushName, phone, waName: pushName, source: 'OTRO', serviceLabel: 'OTRO', tags: [] },
+            data: { name: pushName, phone, waName: pushName, source: 'OTRO', serviceLabel: 'OTRO', tags: ['WhatsApp'] },
           }).catch(() => null)
         } else if (contact && pushName && !contact.waName) {
           await prisma.contact.update({ where: { id: contact.id }, data: { waName: pushName } }).catch(() => {})
@@ -123,6 +151,7 @@ export async function startWhatsApp() {
         await prisma.whatsAppMessage.create({
           data: {
             remoteJid: jid, fromMe, content,
+            phoneJid,
             messageId: msg.key.id!,
             timestamp: new Date(Number(msg.messageTimestamp) * 1000),
             contactId: contact?.id ?? null,
@@ -136,8 +165,8 @@ export async function startWhatsApp() {
         if (!fromMe) {
           await prisma.waConversation.upsert({
             where: { remoteJid: jid },
-            create: { remoteJid: jid, unreadCount: 1, status: 'OPEN' },
-            update: { unreadCount: { increment: 1 }, status: 'OPEN' },
+            create: { remoteJid: jid, phoneJid, unreadCount: 1, status: 'OPEN' },
+            update: { unreadCount: { increment: 1 }, status: 'OPEN', ...(phoneJid ? { phoneJid } : {}) },
           }).catch(() => {})
         }
       }

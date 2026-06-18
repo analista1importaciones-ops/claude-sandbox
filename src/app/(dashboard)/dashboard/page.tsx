@@ -17,11 +17,35 @@ export default async function DashboardPage() {
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  const [active, expiringSoon, expired, quotationsThisMonth, expiringSoonRates, recentRates] = await Promise.all([
+  const startOfDay = new Date(now)
+  startOfDay.setHours(0, 0, 0, 0)
+  const endOfDay = new Date(now)
+  endOfDay.setHours(23, 59, 59, 999)
+
+  const [
+    active,
+    expiringSoon,
+    expired,
+    quotationsThisMonth,
+    openDeals,
+    followUpDeals,
+    appointmentsToday,
+    unreadConversations,
+    pendingScheduledMessages,
+    activeWorkflows,
+    expiringSoonRates,
+    recentRates,
+  ] = await Promise.all([
     prisma.rate.count({ where: { replacedById: null, validUntil: { gt: sevenDaysFromNow } } }),
     prisma.rate.count({ where: { replacedById: null, validUntil: { gte: now, lte: sevenDaysFromNow } } }),
     prisma.rate.count({ where: { replacedById: null, validUntil: { lt: now } } }),
     prisma.quotation.count({ where: { createdAt: { gte: startOfMonth } } }),
+    prisma.deal.count({ where: { stage: { notIn: ['CERRADO_GANADO', 'PERDIDO'] } } }),
+    prisma.deal.count({ where: { stage: 'SEGUIMIENTO' } }),
+    prisma.appointment.count({ where: { startAt: { gte: startOfDay, lte: endOfDay } } }),
+    prisma.waConversation.count({ where: { unreadCount: { gt: 0 } } }),
+    prisma.scheduledMessage.count({ where: { sent: false, sendAt: { lte: now } } }),
+    prisma.workflow.count({ where: { active: true } }),
     prisma.rate.findMany({
       where: { replacedById: null, validUntil: { gte: now, lte: sevenDaysFromNow } },
       orderBy: { validUntil: 'asc' },
@@ -41,6 +65,20 @@ export default async function DashboardPage() {
     { label: 'Por Vencer', value: expiringSoon, bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', href: '/rates?status=expiring', alert: expiringSoon > 0 },
     { label: 'Vencidas', value: expired, bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', href: '/rates?status=expired', alert: expired > 0 },
     { label: 'Cotizaciones este mes', value: quotationsThisMonth, bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', href: '/quotations' },
+  ]
+
+  const pendingCards = [
+    { label: 'Chats sin leer', value: unreadConversations, href: '/whatsapp', tone: 'text-green-700 bg-green-50 border-green-200' },
+    { label: 'Citas de hoy', value: appointmentsToday, href: '/appointments', tone: 'text-blue-700 bg-blue-50 border-blue-200' },
+    { label: 'Mensajes pendientes', value: pendingScheduledMessages, href: '/workflows', tone: 'text-orange-700 bg-orange-50 border-orange-200' },
+    { label: 'Deals en seguimiento', value: followUpDeals, href: '/crm/pipeline', tone: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
+  ]
+
+  const workflowSteps = [
+    { label: 'Tarifas', text: 'Mantener costos vigentes', href: '/rates' },
+    { label: 'Cotizar', text: 'Crear oferta con tarifas y catálogo', href: '/quotations/new' },
+    { label: 'Pipeline', text: 'Mover etapa y activar workflow', href: '/crm/pipeline' },
+    { label: 'WhatsApp', text: 'Responder y agendar seguimiento', href: '/whatsapp' },
   ]
 
   return (
@@ -65,6 +103,44 @@ export default async function DashboardPage() {
             <div className="text-sm text-gray-600 mt-1 font-medium">{s.label}</div>
           </Link>
         ))}
+      </div>
+
+      <div className="grid lg:grid-cols-[1.4fr_1fr] gap-4 mb-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700">Flujo operativo conectado</h2>
+              <p className="text-xs text-gray-400 mt-0.5">De tarifa a cotización, CRM, workflow y WhatsApp.</p>
+            </div>
+            <Link href="/crm/pipeline" className="text-xs text-gtl-navy hover:underline">
+              {openDeals} deals abiertos →
+            </Link>
+          </div>
+          <div className="grid sm:grid-cols-4 gap-3">
+            {workflowSteps.map((step, idx) => (
+              <Link key={step.href} href={step.href} className="rounded-lg border border-gray-100 p-3 hover:border-gtl-navy hover:bg-blue-50 transition-colors">
+                <div className="text-xs font-mono text-gray-400 mb-2">0{idx + 1}</div>
+                <div className="text-sm font-semibold text-gray-900">{step.label}</div>
+                <div className="text-xs text-gray-500 mt-1 leading-snug">{step.text}</div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-700">Pendientes de hoy</h2>
+            <span className="text-xs text-gray-400">{activeWorkflows} workflows activos</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {pendingCards.map(card => (
+              <Link key={card.label} href={card.href} className={`border rounded-lg p-3 ${card.tone} hover:shadow-sm transition-shadow`}>
+                <div className="text-2xl font-bold">{card.value}</div>
+                <div className="text-xs font-medium mt-1">{card.label}</div>
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Expiring alerts */}

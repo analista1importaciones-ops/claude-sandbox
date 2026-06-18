@@ -40,18 +40,40 @@ interface Deal {
   quotation: { id: string; number: string; grandTotal: string } | null
 }
 
+interface Appointment {
+  id: string
+  title: string
+  description: string | null
+  startAt: string
+  endAt: string
+  googleEventId: string | null
+  notified: boolean
+}
+
+interface ServiceInvoice {
+  id: string
+  number: string
+  serviceTag: string | null
+  status: string
+  total: string
+  createdAt: string
+}
+
 interface Contact {
   id: string
   name: string
   company: string | null
   email: string | null
   phone: string | null
+  tags: string[]
   source: string
   serviceLabel: string
   createdAt: string
   assignedTo: { id: string; name: string } | null
   deals: Deal[]
   activities: Activity[]
+  appointments: Appointment[]
+  serviceInvoices: ServiceInvoice[]
 }
 
 export default function ContactDetailPage() {
@@ -170,6 +192,16 @@ export default function ContactDetailPage() {
             <span className="text-xs text-gray-400 block">Servicio</span>
             <span className="text-sm text-gray-700">{SERVICE_LABELS[contact.serviceLabel]}</span>
           </div>
+          {contact.tags?.length > 0 && (
+            <div>
+              <span className="text-xs text-gray-400 block mb-1">Etiquetas</span>
+              <div className="flex flex-wrap gap-1">
+                {contact.tags.map(tag => (
+                  <span key={tag} className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs">{tag}</span>
+                ))}
+              </div>
+            </div>
+          )}
           {contact.assignedTo && (
             <div>
               <span className="text-xs text-gray-400 block">Asignado a</span>
@@ -267,6 +299,65 @@ export default function ContactDetailPage() {
             <p className="text-sm text-gray-400">No hay oportunidades registradas.</p>
           )}
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-gray-800">Facturas de servicio ({contact.serviceInvoices.length})</h2>
+          <Link href={`/invoices/new`} className="text-sm text-blue-600 hover:text-blue-800">Nueva factura</Link>
+        </div>
+        {contact.serviceInvoices.length === 0 ? (
+          <p className="text-sm text-gray-400">No hay facturas de servicio registradas para este cliente.</p>
+        ) : (
+          <div className="space-y-2">
+            {contact.serviceInvoices.map(invoice => (
+              <div key={invoice.id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 flex items-center justify-between gap-3">
+                <div>
+                  <Link href={`/invoices/${invoice.id}/edit`} className="text-sm font-medium text-gtl-navy hover:underline">{invoice.number}</Link>
+                  <p className="text-xs text-gray-500">{invoice.serviceTag ?? 'Servicios GTL'} · {invoice.status}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-gray-900">${Number(invoice.total).toFixed(2)}</p>
+                  <a href={`/api/service-invoices/${invoice.id}/pdf`} target="_blank" className="text-xs text-blue-600 hover:underline">PDF</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-gray-800">Citas ({contact.appointments.length})</h2>
+          <Link href="/appointments" className="text-sm text-blue-600 hover:text-blue-800">Ver agenda</Link>
+        </div>
+        {contact.appointments.length === 0 ? (
+          <p className="text-sm text-gray-400">No hay citas registradas para este cliente.</p>
+        ) : (
+          <div className="space-y-2">
+            {contact.appointments.slice(0, 5).map(apt => {
+              const upcoming = new Date(apt.startAt) >= new Date()
+              return (
+                <div key={apt.id} className={`rounded-lg border px-3 py-2 ${upcoming ? 'border-blue-100 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{apt.title}</p>
+                      {apt.description && <p className="text-xs text-gray-500 mt-0.5">{apt.description}</p>}
+                      <div className="flex flex-wrap gap-2 mt-1 text-xs">
+                        {apt.googleEventId && <span className="text-green-600">Google Calendar</span>}
+                        {apt.notified && <span className="text-blue-600">Cliente notificado</span>}
+                      </div>
+                    </div>
+                    <div className="text-right text-xs text-gray-500 flex-shrink-0">
+                      <p>{new Date(apt.startAt).toLocaleString('es-GT', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                      <p>hasta {new Date(apt.endAt).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div>

@@ -14,9 +14,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       phone: body.phone ?? null,
       email: body.email ?? null,
       company: body.company ?? null,
+      waName: body.waName ?? null,
       tags: body.tags ?? [],
       serviceLabel: body.serviceLabel ?? 'OTRO',
     },
   })
+  if (body.remoteJid) {
+    await prisma.whatsAppMessage.updateMany({
+      where: { remoteJid: body.remoteJid },
+      data: { contactId: contact.id },
+    })
+  }
   return NextResponse.json(contact)
 }

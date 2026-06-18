@@ -18,7 +18,14 @@ interface Deal {
   stage: string
   estimatedValue: string | null
   currency: string
-  contact: { id: string; name: string; company: string | null }
+  contact: {
+    id: string
+    name: string
+    company: string | null
+    phone: string | null
+    tags: string[]
+    _count: { activities: number; whatsappMessages: number; appointments: number }
+  }
   quotation: { number: string } | null
 }
 
@@ -38,14 +45,17 @@ export default function PipelinePage() {
   useEffect(() => { load() }, [])
 
   async function moveToStage(dealId: string, stage: string) {
+    const current = deals.find((d) => d.id === dealId)
+    if (current?.stage === stage) return
     setDeals((prev) =>
       prev.map((d) => (d.id === dealId ? { ...d, stage } : d))
     )
-    await fetch(`/api/crm/deals/${dealId}`, {
+    const res = await fetch(`/api/crm/deals/${dealId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage }),
     })
+    if (!res.ok) load()
   }
 
   function onDragOver(e: React.DragEvent) {
@@ -67,8 +77,8 @@ export default function PipelinePage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Pipeline de Ventas</h1>
-          <p className="text-sm text-gray-500 mt-1">{deals.length} oportunidades en total</p>
+          <h1 className="text-2xl font-bold text-gray-900">Clientes Potenciales</h1>
+          <p className="text-sm text-gray-500 mt-1">{deals.length} oportunidades en el pipeline</p>
         </div>
         <div className="flex gap-3">
           <Link
@@ -90,60 +100,66 @@ export default function PipelinePage() {
         <div className="py-12 text-center text-gray-400">Cargando pipeline...</div>
       ) : (
         <div className="overflow-x-auto pb-4">
-          <div className="flex gap-4 min-w-max">
+          <div className="flex gap-3 min-w-max">
             {STAGES.map((stage) => {
               const stageDeals = byStage(stage.key)
               const total = totalByStage(stage.key)
               return (
                 <div
                   key={stage.key}
-                  className="w-60 flex flex-col"
+                  className="w-72 flex flex-col"
                   onDragOver={onDragOver}
                   onDrop={(e) => onDrop(e, stage.key)}
                 >
-                  <div className={`bg-white rounded-t-xl border-t-4 ${stage.color} border-x border-gray-100 px-3 py-3`}>
+                  <div className={`bg-white rounded-t-lg border-t-4 ${stage.color} border-x border-gray-200 px-3 py-3 shadow-sm`}>
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-gray-800 text-sm">{stage.label}</span>
-                      <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">
-                        {stageDeals.length}
-                      </span>
+                      <span className="text-xs font-semibold text-gray-700">${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                     </div>
-                    {total > 0 && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        USD {total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                      </p>
-                    )}
+                    <p className="text-xs text-gray-500 mt-1">{stageDeals.length} cliente{stageDeals.length !== 1 ? 's' : ''} potencial{stageDeals.length !== 1 ? 'es' : ''}</p>
                   </div>
 
-                  <div className="flex-1 bg-gray-50 rounded-b-xl border-x border-b border-gray-100 p-2 space-y-2 min-h-[400px]">
+                  <div className="flex-1 bg-gray-50 rounded-b-lg border-x border-b border-gray-200 p-2 space-y-2 min-h-[520px]">
                     {stageDeals.map((deal) => (
                       <div
                         key={deal.id}
                         draggable
                         onDragStart={() => setDragging(deal.id)}
                         onDragEnd={() => setDragging(null)}
-                        className={`bg-white rounded-lg border border-gray-100 shadow-sm p-3 cursor-grab active:cursor-grabbing transition-opacity ${
+                        className={`bg-white rounded-lg border border-gray-200 shadow-sm p-3 cursor-grab active:cursor-grabbing transition-opacity ${
                           dragging === deal.id ? 'opacity-50' : ''
                         }`}
                       >
-                        <Link
-                          href={`/crm/contacts/${deal.contact.id}`}
-                          className="font-medium text-sm text-gray-900 hover:text-gtl-orange block"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {deal.contact.name}
-                        </Link>
-                        {deal.contact.company && (
-                          <p className="text-xs text-gray-400 mt-0.5">{deal.contact.company}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <Link
+                            href={`/crm/contacts/${deal.contact.id}`}
+                            className="font-semibold text-sm text-gray-900 hover:text-gtl-orange block"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {deal.contact.name}
+                          </Link>
+                          {deal.quotation && <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{deal.quotation.number}</span>}
+                        </div>
+                        {deal.contact.company && <p className="text-xs text-gray-400 mt-0.5">{deal.contact.company}</p>}
+                        {deal.contact.phone && <p className="text-xs text-gray-500 mt-1">{deal.contact.phone}</p>}
+                        <div className="flex items-center justify-between mt-3">
+                          <span className="text-xs text-gray-500">Valor:</span>
+                          <span className="text-xs font-medium text-gray-700">
+                            {deal.estimatedValue ? `${deal.currency} ${parseFloat(deal.estimatedValue).toLocaleString()}` : '$0.00'}
+                          </span>
+                        </div>
+                        {deal.contact.tags?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {deal.contact.tags.slice(0, 2).map(tag => (
+                              <span key={tag} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">{tag}</span>
+                            ))}
+                          </div>
                         )}
-                        {deal.estimatedValue && (
-                          <p className="text-xs font-semibold text-gtl-orange mt-1.5">
-                            {deal.currency} {parseFloat(deal.estimatedValue).toLocaleString()}
-                          </p>
-                        )}
-                        {deal.quotation && (
-                          <p className="text-xs text-gray-400 mt-1">{deal.quotation.number}</p>
-                        )}
+                        <div className="flex items-center gap-3 mt-3 text-xs text-gray-400">
+                          <span title="WhatsApp">💬 {deal.contact._count.whatsappMessages}</span>
+                          <span title="Actividades">✓ {deal.contact._count.activities}</span>
+                          <span title="Citas">📅 {deal.contact._count.appointments}</span>
+                        </div>
                       </div>
                     ))}
                     {stageDeals.length === 0 && (

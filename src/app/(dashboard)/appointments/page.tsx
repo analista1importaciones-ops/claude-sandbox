@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 interface Appointment {
   id: string; title: string; description: string | null
   startAt: string; endAt: string; remoteJid: string | null
-  googleEventId: string | null
+  googleEventId: string | null; notified: boolean
   contact: { name: string; phone: string | null } | null
 }
 
@@ -52,7 +52,11 @@ function Card({ apt, fmt, upcoming }: { apt: Appointment; fmt: (s: string) => st
             <p className="text-xs text-gray-400">hasta {new Date(apt.endAt).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}</p>
           </div>
         </div>
-        {apt.googleEventId && <div className="mt-2 text-xs text-green-600">✓ Guardado en Google Calendar</div>}
+        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+          {apt.googleEventId && <span className="text-green-600">✓ Guardado en Google Calendar</span>}
+          {apt.notified && <span className="text-blue-600">✓ Cliente notificado</span>}
+          {!apt.notified && upcoming && <span className="text-amber-600">Cliente no notificado</span>}
+        </div>
       </div>
     </div>
   )

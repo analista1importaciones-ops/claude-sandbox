@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { queueOrSendWorkflowMessage } from '@/lib/workflows'
 
 async function generateNumber(): Promise<string> {
   const year = new Date().getFullYear()
@@ -86,6 +87,46 @@ export async function POST(req: NextRequest) {
       notes: body.notes || null,
     },
   })
+
+  const contactWhere = body.customerPhone
+    ? { phone: { contains: String(body.customerPhone).replace(/\D/g, '').slice(-8) } }
+    : body.customerEmail
+      ? { email: body.customerEmail }
+      : null
+
+  const contact = contactWhere
+    ? await prisma.contact.findFirst({ where: contactWhere })
+    : null
+
+  const crmContact = contact ?? await prisma.contact.create({
+    data: {
+      name: body.customerName,
+      email: body.customerEmail || null,
+      phone: body.customerPhone || null,
+      source: 'OTRO',
+      serviceLabel: 'OTRO',
+      tags: ['Cotización'],
+    },
+  })
+
+  await prisma.deal.create({
+    data: {
+      contactId: crmContact.id,
+      stage: 'COTIZADO',
+      estimatedValue: parseFloat(body.grandTotal),
+      currency: body.currency || 'USD',
+      quotationId: quotation.id,
+      notes: `Cotización ${quotation.number}: ${body.originPort} → ${body.destinationPort}`,
+    },
+  })
+
+  const workflows = await prisma.workflow.findMany({
+    where: { active: true, trigger: 'DEAL_STAGE_CHANGED', stage: 'COTIZADO' },
+    include: { template: true },
+  })
+  for (const wf of workflows) {
+    await queueOrSendWorkflowMessage(wf, crmContact).catch(e => console.error('[Quotation workflow] send failed', e))
+  }
 
   return NextResponse.json(quotation, { status: 201 })
 }

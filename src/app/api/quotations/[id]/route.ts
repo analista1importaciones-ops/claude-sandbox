@@ -24,12 +24,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json()
 
   // Status-only update
-  if (body.status && Object.keys(body).length === 1) {
+  if (body.status && (Object.keys(body).length === 1 || (body.silent && Object.keys(body).length === 2))) {
     const q = await prisma.quotation.update({
       where: { id: params.id },
       data: { status: body.status },
     })
-    if (q.customerEmail) {
+    if (q.customerEmail && !body.silent) {
       sendStatusEmail({
         to: q.customerEmail,
         customerName: q.customerName,

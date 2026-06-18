@@ -21,6 +21,7 @@ model User {
   rateSheetsCreated   RateSheet[]
   assignedContacts    Contact[]
   activities          Activity[]
+  serviceInvoices     ServiceInvoice[]
 }
 
 enum Role {
@@ -140,6 +141,39 @@ enum CostCategory {
   LOCAL_CHARGES
   THIRD_PARTY
   INLAND_TRANSPORT
+  SERVICE_RATES
+}
+
+model ServiceInvoice {
+  id            String               @id @default(cuid())
+  number        String               @unique
+  createdById   String
+  createdBy     User                 @relation(fields: [createdById], references: [id])
+  contactId     String?
+  contact       Contact?             @relation(fields: [contactId], references: [id])
+  createdAt     DateTime             @default(now())
+  issueDate     DateTime             @default(now())
+  dueDate       DateTime?
+  status        ServiceInvoiceStatus @default(EMITIDA)
+  customerName  String
+  customerEmail String?
+  customerPhone String?
+  customerTaxId String?
+  customerAddress String?
+  serviceTag    String?
+  currency      String               @default("USD")
+  items         Json
+  subtotal      Decimal              @db.Decimal(12, 2)
+  ivaTotal      Decimal              @db.Decimal(12, 2)
+  total         Decimal              @db.Decimal(12, 2)
+  notes         String?
+}
+
+enum ServiceInvoiceStatus {
+  BORRADOR
+  EMITIDA
+  PAGADA
+  ANULADA
 }
 
 model InlandRoute {
@@ -293,6 +327,7 @@ model Contact {
   scheduledMessages ScheduledMessage[]
   appointments      Appointment[]
   internalNotes     InternalNote[]
+  serviceInvoices   ServiceInvoice[]
 }
 
 model Deal {
@@ -329,6 +364,7 @@ model Activity {
 model WhatsAppMessage {
   id          String   @id @default(cuid())
   remoteJid   String
+  phoneJid    String?
   fromMe      Boolean  @default(false)
   content     String
   messageId   String   @unique
@@ -344,6 +380,7 @@ model WhatsAppMessage {
 model WaConversation {
   id          String   @id @default(cuid())
   remoteJid   String   @unique
+  phoneJid    String?
   unreadCount Int      @default(0)
   status      String   @default("OPEN")
   updatedAt   DateTime @updatedAt
@@ -363,6 +400,7 @@ model Workflow {
   name      String
   trigger   WorkflowTrigger
   stage     PipelineStage?
+  serviceTag String?
   delayDays Int            @default(0)
   templateId String?
   template  WhatsAppTemplate? @relation(fields: [templateId], references: [id])

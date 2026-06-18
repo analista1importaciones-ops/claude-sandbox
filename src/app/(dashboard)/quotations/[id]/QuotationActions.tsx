@@ -36,10 +36,6 @@ export default function QuotationActions({ quotationId, status }: { quotationId:
     router.refresh()
   }
 
-  function downloadPdf() {
-    window.open(`/api/quotations/${quotationId}/pdf`, '_blank')
-  }
-
   return (
     <div className="flex items-center gap-2">
       <Link href={`/quotations/${quotationId}/edit`}
@@ -50,13 +46,21 @@ export default function QuotationActions({ quotationId, status }: { quotationId:
         Editar
       </Link>
 
-      <button onClick={downloadPdf}
+      <a href={`/api/quotations/${quotationId}/pdf?v=latest`} target="_blank" rel="noreferrer"
         className="flex items-center gap-1.5 px-3 py-2 bg-gtl-orange text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
         </svg>
         Descargar PDF
-      </button>
+      </a>
+
+      <a href={`/api/quotations/${quotationId}/proforma?v=latest`} target="_blank" rel="noreferrer"
+        className="flex items-center gap-1.5 px-3 py-2 bg-gtl-navy text-white rounded-lg text-sm font-medium hover:bg-gtl-navy-dark transition-colors">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14h6m-6 4h6M7 4h10a2 2 0 012 2v14l-4-2-3 2-3-2-4 2V6a2 2 0 012-2z" />
+        </svg>
+        Factura PDF
+      </a>
 
       {/* Status dropdown */}
       <div className="relative">

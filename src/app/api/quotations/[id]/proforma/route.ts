@@ -43,6 +43,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="proforma-${q.number}.pdf"`,
+      'Cache-Control': 'no-store, max-age=0',
     },
   })
 }

@@ -105,6 +105,17 @@ const PERMISOS = [
   'Zoosanitario',
 ]
 
+const PERMISO_KEYS: Record<string, string> = {
+  'Licencias de Importación': 'b3_permiso_licencias',
+  INEN: 'b3_permiso_inen',
+  MIPRO: 'b3_permiso_mipro',
+  ARCSA: 'b3_permiso_arcsa',
+  'No Requiere Registro Sanitario': 'b3_permiso_no_registro',
+  Agrocalidad: 'b3_permiso_agrocalidad',
+  Fitosanitario: 'b3_permiso_fitosanitario',
+  Zoosanitario: 'b3_permiso_zoosanitario',
+}
+
 function buildIntlTemplate(incoterm: string): LineItem[] {
   if (incoterm === 'CIF') return []
   if (incoterm === 'EXW' || incoterm === 'FCA') {
@@ -132,11 +143,12 @@ const DEFAULT_LOCAL_CHARGES: LineItem[] = [
 ]
 
 function buildOtherCharges(mode: string, cbm: number, city: string, fobValue: number, permiso: string, catalog: Record<string, number>): LineItem[] {
+  const permisoKey = PERMISO_KEYS[permiso]
   const items: LineItem[] = [
     { label: 'Agente de Aduana / Despacho Aduanero', amount: calcAgenteAduana(mode, catalog) },
     { label: calcTransporteLabel(city), amount: calcTransporte(mode, city, cbm, catalog) },
-    { label: permiso, amount: 0 },
-    { label: 'Seguro Todo Riesgo / Póliza', amount: 0 },
+    { label: permiso, amount: permisoKey ? (catalog[permisoKey] ?? 0) : 0 },
+    { label: 'Seguro Todo Riesgo / Póliza', amount: calcSeguro(fobValue) },
     { label: 'Bodegaje Aprox. Patio', amount: calcBodegaje(mode, cbm, catalog) },
     { label: 'Aranceles Aduana Ecuador', amount: 0 },
   ]

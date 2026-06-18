@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { queueOrSendWorkflowMessage } from '@/lib/workflows'
 
 async function generateCourierNumber(): Promise<string> {
   const count = await prisma.courierQuotation.count()
@@ -25,13 +26,14 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
+  const userId = (session.user as { id: string }).id
 
   const number = await generateCourierNumber()
 
   const quotation = await prisma.courierQuotation.create({
     data: {
       number,
-      createdById: (session.user as { id: string }).id,
+      createdById: userId,
       customerName: body.customerName,
       customerEmail: body.customerEmail || null,
       customerPhone: body.customerPhone || null,
@@ -52,6 +54,62 @@ export async function POST(req: NextRequest) {
       notes: body.notes || null,
     },
   })
+
+  const contactLookup = [
+    ...(body.customerEmail ? [{ email: body.customerEmail }] : []),
+    ...(body.customerPhone ? [{ phone: body.customerPhone }] : []),
+  ]
+
+  if (contactLookup.length > 0) {
+    const existingContact = await prisma.contact.findFirst({
+      where: { OR: contactLookup },
+      select: { id: true, tags: true, phone: true },
+    })
+
+    const contact = existingContact
+      ? await prisma.contact.update({
+          where: { id: existingContact.id },
+          data: {
+            name: body.customerName,
+            email: body.customerEmail || undefined,
+            phone: body.customerPhone || undefined,
+            serviceLabel: 'COURIER',
+            tags: Array.from(new Set([...(existingContact.tags ?? []), 'Courier', 'Cotizado'])),
+          },
+        })
+      : await prisma.contact.create({
+          data: {
+            name: body.customerName,
+            email: body.customerEmail || null,
+            phone: body.customerPhone || null,
+            source: 'OTRO',
+            serviceLabel: 'COURIER',
+            assignedToId: userId,
+            tags: ['Courier', 'Cotizado'],
+          },
+        })
+
+    const deal = await prisma.deal.create({
+      data: {
+        contactId: contact.id,
+        stage: 'COTIZADO',
+        estimatedValue: body.selectedPriceUsd ? parseFloat(body.selectedPriceUsd) : null,
+        currency: 'USD',
+        notes: `Cotización courier ${quotation.number}`,
+      },
+    })
+
+    const workflows = await prisma.workflow.findMany({
+      where: { active: true, trigger: 'DEAL_STAGE_CHANGED', stage: 'COTIZADO' },
+      include: { template: true },
+    })
+
+    await Promise.all(workflows.map(workflow =>
+      queueOrSendWorkflowMessage(workflow, contact).catch(error => {
+        console.error('[Courier workflow] send failed', error)
+      })
+    ))
+  }
 
   return NextResponse.json(quotation, { status: 201 })
 }

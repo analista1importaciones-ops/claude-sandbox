@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { runContactCreatedWorkflows } from '@/lib/workflows'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { name, company, email, phone, source, serviceLabel, assignedToId } = body
+  const { name, company, email, phone, source, serviceLabel, assignedToId, tags } = body
 
   if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 })
 
@@ -53,9 +54,11 @@ export async function POST(req: NextRequest) {
       phone: phone || null,
       source: source || 'OTRO',
       serviceLabel: serviceLabel || 'OTRO',
+      tags: tags || [],
       assignedToId: assignedToId || null,
     },
   })
+  await runContactCreatedWorkflows(contact)
 
   return NextResponse.json(contact, { status: 201 })
 }

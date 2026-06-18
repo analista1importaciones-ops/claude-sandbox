@@ -26,6 +26,17 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
   })
   if (!q) notFound()
 
+  const contactLookup = [
+    ...(q.customerEmail ? [{ email: q.customerEmail }] : []),
+    ...(q.customerPhone ? [{ phone: q.customerPhone }] : []),
+  ]
+  const contact = contactLookup.length > 0
+    ? await prisma.contact.findFirst({
+        where: { OR: contactLookup },
+        select: { id: true },
+      })
+    : null
+
   const intlCharges = q.intlCharges as LineItem[]
   const localCharges = q.localCharges as LineItem[]
   const otherCharges = q.otherCharges as LineItem[]
@@ -87,7 +98,14 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
 
       {/* Client */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase mb-3">Cliente</h2>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase">Cliente</h2>
+          {contact && (
+            <Link href={`/crm/contacts/${contact.id}`} className="text-xs font-medium text-gtl-navy hover:underline">
+              Ver perfil CRM →
+            </Link>
+          )}
+        </div>
         <div className="text-sm space-y-1">
           <div className="font-semibold text-gray-900">{q.customerName}</div>
           {q.customerEmail && <div className="text-gray-500">{q.customerEmail}</div>}

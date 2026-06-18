@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { runContactCreatedWorkflows } from '@/lib/workflows'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search') ?? ''
   const contacts = await prisma.contact.findMany({
     take: limit,
-    where: search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }] } : undefined,
+    where: search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }, { email: { contains: search, mode: 'insensitive' } }] } : undefined,
     orderBy: { name: 'asc' },
     select: { id: true, name: true, company: true, phone: true, email: true, waName: true, tags: true, serviceLabel: true, source: true },
   })
@@ -34,5 +35,12 @@ export async function POST(req: NextRequest) {
       source: body.source ?? 'OTRO',
     },
   })
+  if (body.remoteJid) {
+    await prisma.whatsAppMessage.updateMany({
+      where: { remoteJid: body.remoteJid },
+      data: { contactId: contact.id },
+    })
+  }
+  await runContactCreatedWorkflows(contact)
   return NextResponse.json(contact)
 }

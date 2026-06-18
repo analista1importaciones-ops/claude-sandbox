@@ -49,7 +49,14 @@ export default async function RatesPage({ searchParams }: { searchParams: { stat
 
   const statusFilter = (searchParams.status as StatusFilter) ?? 'all'
   const search = searchParams.search
-  const [rates, stats] = await Promise.all([getRates(statusFilter, search), getStats()])
+  const [rates, stats, serviceRates] = await Promise.all([
+    getRates(statusFilter, search),
+    getStats(),
+    prisma.gtlCostConfig.findMany({
+      where: { key: { startsWith: 'srv_' } },
+      orderBy: { label: 'asc' },
+    }),
+  ])
 
   const tabs: { key: StatusFilter; label: string; count: number }[] = [
     { key: 'all', label: 'Todas', count: stats.active + stats.expiringSoon + stats.expired + stats.replaced },
@@ -69,6 +76,31 @@ export default async function RatesPage({ searchParams }: { searchParams: { stat
         <Link href="/rates/new" className="bg-gtl-navy text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gtl-navy-dark transition-colors flex items-center gap-2">
           <span className="text-lg leading-none">+</span> Nueva Tarifa
         </Link>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-700">Tarifas de servicios GTL</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Servicios comerciales y operativos que también se pueden cotizar y facturar.</p>
+          </div>
+          <Link href="/catalog" className="text-xs font-medium text-gtl-navy hover:underline">Editar catálogo →</Link>
+        </div>
+        {serviceRates.length === 0 ? (
+          <div className="text-sm text-gray-400">Aún no hay tarifas de servicios configuradas.</div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {serviceRates.map(service => (
+              <Link key={service.id} href="/catalog" className="rounded-lg border border-gray-100 p-4 hover:border-gtl-navy hover:bg-blue-50 transition-colors">
+                <div className="text-sm font-semibold text-gray-900">{service.label}</div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-xs text-gray-400">{service.appliesIva ? 'Aplica IVA' : 'Sin IVA'}</span>
+                  <span className="font-mono text-sm font-bold text-gtl-navy">${Number(service.value).toFixed(2)}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">

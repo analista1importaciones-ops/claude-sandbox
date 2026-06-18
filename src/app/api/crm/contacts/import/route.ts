@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { runContactCreatedWorkflows } from '@/lib/workflows'
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-záéíóúñ]/gi, ''))
 
-  const idx = (names) => {
+  const idx = (names: string[]) => {
     for (const n of names) {
       const i = headers.findIndex(h => h.includes(n))
       if (i !== -1) return i
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''))
     const name = cols[nameIdx]
     if (!name) continue
-    await prisma.contact.create({
+    const contact = await prisma.contact.create({
       data: {
         name,
         company: companyIdx !== -1 ? cols[companyIdx] || null : null,
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
         serviceLabel: 'OTRO',
       },
     })
+    await runContactCreatedWorkflows(contact)
     created++
   }
 

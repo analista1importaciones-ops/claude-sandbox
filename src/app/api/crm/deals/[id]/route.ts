@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { sendWAMessage } from '@/lib/whatsapp'
+import { queueOrSendWorkflowMessage } from '@/lib/workflows'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -16,23 +16,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       include: { template: true },
     })
     for (const wf of workflows) {
-      const phone = deal.contact?.phone
-      const msg = wf.template?.body ?? null
-      if (phone && msg) {
-        const text = msg.replace('{{nombre}}', deal.contact?.name ?? '').replace('{{empresa}}', deal.contact?.company ?? '')
-        try {
-          const jid = await sendWAMessage(phone, text)
-          await prisma.whatsAppMessage.create({
-            data: {
-              remoteJid: jid,
-              fromMe: true,
-              content: text,
-              messageId: `wf_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-              timestamp: new Date(),
-              contactId: deal.contact?.id ?? null,
-            },
-          })
-        } catch (e) { console.error('[Workflow] send failed', e) }
+      if (deal.contact) {
+        await queueOrSendWorkflowMessage(wf, deal.contact).catch(e => console.error('[Workflow] send failed', e))
       }
     }
   }

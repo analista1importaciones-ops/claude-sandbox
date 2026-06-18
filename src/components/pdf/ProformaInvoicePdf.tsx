@@ -1,12 +1,15 @@
 import {
-  Document, Page, Text, View, StyleSheet,
+  Document, Image, Page, Text, View, StyleSheet,
 } from '@react-pdf/renderer'
+import { PAYMENT_ACCOUNTS, PAYMENT_RECEIPT_EMAIL } from '@/lib/paymentAccounts'
 
 const NAVY = '#0d2d6b'
 const BLUE = '#1a56db'
 const ORANGE = '#e36b0c'
 const LIGHT_GRAY = '#f0f4ff'
 const BORDER = '#c7d7f5'
+const GTL_LOGO = `${process.cwd()}/public/logo.jpg`
+const AURIGA_LOGO = `${process.cwd()}/public/auriga-logo.jpeg`
 
 const s = StyleSheet.create({
   page: { fontFamily: 'Helvetica', fontSize: 9, color: '#1e293b', padding: '22 38 28 38', backgroundColor: '#ffffff' },
@@ -14,8 +17,9 @@ const s = StyleSheet.create({
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: NAVY },
   logoBlock: { flexDirection: 'column' },
-  logoGtl: { fontSize: 22, fontFamily: 'Helvetica-Bold', color: NAVY, letterSpacing: 1 },
-  logoRate: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: ORANGE, letterSpacing: 0.5 },
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logoImage: { width: 86, height: 48, objectFit: 'contain' },
+  aurigaImage: { width: 70, height: 48, objectFit: 'contain' },
   logoSub: { fontSize: 7.5, color: '#64748b', marginTop: 2 },
   invoiceInfo: { alignItems: 'flex-end' },
   invoiceLabel: { fontSize: 7, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 2 },
@@ -55,6 +59,14 @@ const s = StyleSheet.create({
   conditions: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '7 10', marginTop: 10, marginBottom: 8 },
   condTitle: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', marginBottom: 5 },
   condText: { fontSize: 8, color: '#334155', lineHeight: 1.4 },
+  paymentBox: { marginTop: 8, borderWidth: 1, borderColor: BORDER, borderRadius: 4, overflow: 'hidden' },
+  paymentHeader: { backgroundColor: NAVY, padding: '5 9' },
+  paymentHeaderText: { color: '#ffffff', fontSize: 8, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase' },
+  paymentRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: BORDER },
+  paymentAccount: { flex: 1, padding: '7 9' },
+  paymentTitle: { fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: NAVY, marginBottom: 3 },
+  paymentText: { fontSize: 7.8, color: '#334155', lineHeight: 1.35 },
+  receiptText: { fontSize: 8, color: ORANGE, fontFamily: 'Helvetica-Bold', padding: '6 9', backgroundColor: '#fff7ed' },
 
   // Footer
   footer: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 6, marginTop: 10, flexDirection: 'row', justifyContent: 'center' },
@@ -134,8 +146,10 @@ export default function ProformaInvoicePdf(props: ProformaInvoicePdfProps) {
         {/* Header */}
         <View style={s.header}>
           <View style={s.logoBlock}>
-            <Text style={s.logoGtl}>GTL</Text>
-            <Text style={s.logoRate}>Rate</Text>
+            <View style={s.logoRow}>
+              <Image src={GTL_LOGO} style={s.logoImage} />
+              <Image src={AURIGA_LOGO} style={s.aurigaImage} />
+            </View>
             <Text style={s.logoSub}>Global Trade Logistics S.A.S.</Text>
           </View>
           <View style={s.invoiceInfo}>
@@ -216,6 +230,24 @@ export default function ProformaInvoicePdf(props: ProformaInvoicePdfProps) {
             Los valores indicados deben cancelarse según avance de la operación.
             Consulte a su ejecutivo de cuenta para información de pago.
           </Text>
+        </View>
+
+        <View style={s.paymentBox}>
+          <View style={s.paymentHeader}>
+            <Text style={s.paymentHeaderText}>Datos para el pago</Text>
+          </View>
+          <View style={s.paymentRow}>
+            {PAYMENT_ACCOUNTS.map(account => (
+              <View key={account.accountNumber} style={s.paymentAccount}>
+                <Text style={s.paymentTitle}>{account.bank}</Text>
+                <Text style={s.paymentText}>{account.accountType}</Text>
+                <Text style={s.paymentText}>Cuenta: {account.accountNumber}</Text>
+                <Text style={s.paymentText}>Titular: {account.beneficiary}</Text>
+                {account.taxId && <Text style={s.paymentText}>RUC: {account.taxId}</Text>}
+              </View>
+            ))}
+          </View>
+          <Text style={s.receiptText}>Enviar comprobante a: {PAYMENT_RECEIPT_EMAIL}</Text>
         </View>
 
         {/* Footer */}

@@ -15,6 +15,7 @@ interface CatalogData {
   bodegaje: CatalogEntry[]
   permisos: CatalogEntry[]
   transport: CatalogEntry[]
+  serviceRates: CatalogEntry[]
 }
 
 function CatalogSection({
@@ -91,12 +92,20 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set())
+  const [newServiceLabel, setNewServiceLabel] = useState('')
+  const [newServiceValue, setNewServiceValue] = useState('')
+  const [creating, setCreating] = useState(false)
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
     fetch('/api/catalog')
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false) })
       .catch(() => { setError('No se pudo cargar el catálogo.'); setLoading(false) })
+  }
+
+  useEffect(() => {
+    load()
   }, [])
 
   async function handleSave(key: string, value: number) {
@@ -124,6 +133,26 @@ export default function CatalogPage() {
     }
   }
 
+  async function createService() {
+    if (!newServiceLabel.trim()) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: newServiceLabel.trim(), value: parseFloat(newServiceValue) || 0 }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      setNewServiceLabel('')
+      setNewServiceValue('')
+      load()
+    } catch {
+      setError('No se pudo crear el servicio.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -137,7 +166,7 @@ export default function CatalogPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Catálogo de Servicios</h1>
         <p className="text-gray-500 text-sm mt-1">
-          Precios base para cargos B2 y B3 — se aplican automáticamente en nuevas cotizaciones
+          Precios base para cargos operativos, tarifas de servicios y costos que alimentan cotizaciones y facturas.
         </p>
       </div>
 
@@ -147,6 +176,48 @@ export default function CatalogPage() {
 
       {data && (
         <div className="space-y-5">
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-700">Tarifas de servicios GTL</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Cursos, carga, asesorías, inspecciones, búsqueda de proveedores y nuevos servicios.</p>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-[1fr_150px_auto] gap-3 mb-4">
+              <input
+                value={newServiceLabel}
+                onChange={e => setNewServiceLabel(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d2d6b]"
+                placeholder="Nombre del nuevo servicio"
+              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <input
+                  value={newServiceValue}
+                  onChange={e => setNewServiceValue(e.target.value)}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d2d6b]"
+                  placeholder="0.00"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={createService}
+                disabled={creating || !newServiceLabel.trim()}
+                className="px-4 py-2 text-sm font-medium bg-[#0d2d6b] text-white rounded-lg hover:bg-[#0a2456] disabled:opacity-50"
+              >
+                {creating ? 'Creando...' : '+ Agregar'}
+              </button>
+            </div>
+          </div>
+          <CatalogSection
+            title="Tarifas de servicios comerciales y operativos"
+            entries={data.serviceRates}
+            savedKeys={savedKeys}
+            onSave={handleSave}
+          />
           <CatalogSection
             title="Bloque 2 — Gastos Locales GTL"
             entries={data.localCharges}

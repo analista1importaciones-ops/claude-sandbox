@@ -42,26 +42,40 @@ const DEFAULT_ENTRIES = [
   { key: 'b3_trans_otra_fcl40', label: 'Transporte Otra Ciudad — FCL 40GP/HQ', value: 800, category: 'INLAND_TRANSPORT', appliesIva: false },
   { key: 'b3_trans_otra_1cbm', label: 'Transporte Otra Ciudad — 1 CBM', value: 140, category: 'INLAND_TRANSPORT', appliesIva: false },
   { key: 'b3_trans_otra_cbm_extra', label: 'Transporte Otra Ciudad — por CBM adicional', value: 50, category: 'INLAND_TRANSPORT', appliesIva: false },
+  // SERVICE_RATES
+  { key: 'srv_cursos', label: 'Cursos de Importación', value: 0, category: 'THIRD_PARTY', appliesIva: true },
+  { key: 'srv_carga', label: 'Carga / Gestión logística', value: 0, category: 'THIRD_PARTY', appliesIva: true },
+  { key: 'srv_asesorias', label: 'Asesorías de Comercio Exterior', value: 0, category: 'THIRD_PARTY', appliesIva: true },
+  { key: 'srv_inspecciones', label: 'Inspecciones en origen', value: 0, category: 'THIRD_PARTY', appliesIva: true },
+  { key: 'srv_busqueda_proveedores', label: 'Búsqueda de proveedores', value: 0, category: 'THIRD_PARTY', appliesIva: true },
+  { key: 'srv_courier', label: 'Courier internacional', value: 0, category: 'THIRD_PARTY', appliesIva: true },
+  { key: 'srv_nacionalizacion', label: 'Nacionalización', value: 0, category: 'THIRD_PARTY', appliesIva: true },
+  { key: 'srv_transporte_pesado', label: 'Transporte pesado', value: 0, category: 'THIRD_PARTY', appliesIva: true },
+  { key: 'srv_seguro_carga', label: 'Seguro de carga', value: 0, category: 'THIRD_PARTY', appliesIva: true },
 ] as const
 
 export async function GET() {
   try {
-    // Upsert any missing entries
-    await Promise.all(
-      DEFAULT_ENTRIES.map(entry =>
-        prisma.gtlCostConfig.upsert({
-          where: { key: entry.key },
-          update: {},
-          create: {
-            key: entry.key,
-            label: entry.label,
-            value: entry.value,
-            appliesIva: entry.appliesIva,
-            category: entry.category as any,
-          },
-        })
-      )
+    const defaultKeys = DEFAULT_ENTRIES.map(entry => entry.key)
+    const existingKeys = new Set(
+      (await prisma.gtlCostConfig.findMany({
+        where: { key: { in: defaultKeys } },
+        select: { key: true },
+      })).map(entry => entry.key)
     )
+
+    for (const entry of DEFAULT_ENTRIES) {
+      if (existingKeys.has(entry.key)) continue
+      await prisma.gtlCostConfig.create({
+        data: {
+          key: entry.key,
+          label: entry.label,
+          value: entry.value,
+          appliesIva: entry.appliesIva,
+          category: entry.category as any,
+        },
+      })
+    }
 
     const all = await prisma.gtlCostConfig.findMany({ orderBy: { key: 'asc' } })
 
@@ -71,10 +85,42 @@ export async function GET() {
       bodegaje: all.filter(e => e.key.startsWith('b3_bodegaje_')),
       permisos: all.filter(e => e.key.startsWith('b3_permiso_')),
       transport: all.filter(e => e.category === 'INLAND_TRANSPORT'),
+      serviceRates: all.filter(e => e.key.startsWith('srv_')),
     })
   } catch (error) {
     console.error('Catalog GET error:', error)
     return NextResponse.json({ error: 'Failed to fetch catalog' }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const { label, value = 0, appliesIva = true } = await request.json()
+    if (!label || typeof label !== 'string') {
+      return NextResponse.json({ error: 'Missing label' }, { status: 400 })
+    }
+
+    const key = `srv_${label
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')}_${Date.now()}`
+
+    const entry = await prisma.gtlCostConfig.create({
+      data: {
+        key,
+        label,
+        value: parseFloat(String(value)) || 0,
+        appliesIva: Boolean(appliesIva),
+        category: 'THIRD_PARTY',
+      },
+    })
+
+    return NextResponse.json(entry, { status: 201 })
+  } catch (error) {
+    console.error('Catalog POST error:', error)
+    return NextResponse.json({ error: 'Failed to create service' }, { status: 500 })
   }
 }
 

@@ -7,18 +7,23 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { searchParams } = new URL(req.url)
-  const contactId = searchParams.get('contactId')
-  const jid = searchParams.get('jid')
+  try {
+    const { searchParams } = new URL(req.url)
+    const contactId = searchParams.get('contactId')
+    const jid = searchParams.get('jid')
 
-  const messages = await prisma.whatsAppMessage.findMany({
-    where: {
-      ...(contactId ? { contactId } : {}),
-      ...(jid ? { remoteJid: jid } : {}),
-    },
-    orderBy: { timestamp: 'asc' },
-    take: 100,
-  })
+    const messages = await prisma.whatsAppMessage.findMany({
+      where: {
+        ...(contactId ? { contactId } : {}),
+        ...(jid ? { OR: [{ remoteJid: jid }, { phoneJid: jid }] } : {}),
+      },
+      orderBy: { timestamp: 'asc' },
+      take: 100,
+    })
 
-  return NextResponse.json(messages)
+    return NextResponse.json(messages)
+  } catch (error) {
+    console.error('[WhatsApp messages] load failed', error)
+    return NextResponse.json({ error: 'No se pudieron cargar los mensajes de WhatsApp.' }, { status: 500 })
+  }
 }

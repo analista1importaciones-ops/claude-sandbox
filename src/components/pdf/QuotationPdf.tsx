@@ -1,85 +1,63 @@
 import {
-  Document, Page, Text, View, StyleSheet, Font, Image,
+  Document, Image, Page, StyleSheet, Text, View,
 } from '@react-pdf/renderer'
-import path from 'path'
 
-const LOGO_PATH = path.join(process.cwd(), 'public', 'logo.jpg')
-
-Font.register({
-  family: 'Helvetica',
-  fonts: [],
-})
+const LOGO_PATH = `${process.cwd()}/public/logo.jpg`
 
 const NAVY = '#0d2d6b'
-const BLUE = '#1a56db'
-const LIGHT_GRAY = '#f0f4ff'
+const ORANGE = '#e36b0c'
+const LIGHT = '#f0f4ff'
 const BORDER = '#c7d7f5'
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', fontSize: 9, color: '#1e293b', padding: '22 38 28 38', backgroundColor: '#ffffff' },
-
-  // Header
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: NAVY },
-  logoBlock: { flexDirection: 'column' },
-  logoName: { fontSize: 16, fontFamily: 'Helvetica-Bold', color: NAVY, letterSpacing: 0.5 },
-  logoSub: { fontSize: 7.5, color: '#64748b', marginTop: 2 },
-  quoteInfo: { alignItems: 'flex-end' },
-  quoteNumber: { fontSize: 14, fontFamily: 'Helvetica-Bold', color: BLUE },
-  quoteLabel: { fontSize: 7, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 2 },
-  quoteDate: { fontSize: 8, color: '#475569', marginTop: 3 },
-
-  // Client + route strip
-  metaRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  metaBox: { flex: 1, backgroundColor: LIGHT_GRAY, borderRadius: 4, padding: '7 10', borderWidth: 1, borderColor: BORDER },
-  metaLabel: { fontSize: 7, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4, fontFamily: 'Helvetica-Bold' },
-  metaValue: { fontSize: 9, color: '#1e293b', fontFamily: 'Helvetica-Bold' },
-  metaSub: { fontSize: 8, color: '#64748b', marginTop: 2 },
-
-  // Tables
-  section: { marginBottom: 9 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  sectionDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: NAVY, marginRight: 6 },
-  sectionTitle: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5 },
-  table: { borderWidth: 1, borderColor: BORDER, borderRadius: 4, overflow: 'hidden' },
-  tableHead: { flexDirection: 'row', backgroundColor: NAVY, padding: '4 10' },
-  tableHeadText: { fontSize: 7.5, color: '#ffffff', fontFamily: 'Helvetica-Bold', textTransform: 'uppercase' },
-  tableRow: { flexDirection: 'row', padding: '4 10', borderBottomWidth: 1, borderBottomColor: BORDER },
-  tableRowAlt: { backgroundColor: LIGHT_GRAY },
-  tableCell: { flex: 1, fontSize: 8.5, color: '#334155' },
-  tableCellRight: { width: 80, fontSize: 8.5, color: '#0f172a', fontFamily: 'Helvetica-Bold', textAlign: 'right' },
-  subtotalRow: { flexDirection: 'row', padding: '4 10', backgroundColor: '#eff6ff', borderTopWidth: 1, borderTopColor: '#bfdbfe' },
-  subtotalLabel: { flex: 1, fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: NAVY },
-  subtotalValue: { width: 80, fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: NAVY, textAlign: 'right' },
-
-  // Grand total
-  totalBox: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4, marginBottom: 10 },
-  totalInner: { backgroundColor: NAVY, borderRadius: 6, padding: '8 16', flexDirection: 'row', alignItems: 'center', gap: 20, minWidth: 220 },
-  totalLabel: { fontSize: 10, color: '#ffffff', fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.5 },
-  totalValue: { fontSize: 14, color: '#ffffff', fontFamily: 'Helvetica-Bold' },
-
-  // Conditions + footer
-  conditions: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '5 10', marginBottom: 8 },
-  condTitle: { fontSize: 7, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', marginBottom: 4 },
-  condItem: { fontSize: 7, color: '#334155', marginBottom: 1.5 },
-  footer: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 6, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  page: { fontFamily: 'Helvetica', fontSize: 9, color: '#1e293b', padding: 34, backgroundColor: '#ffffff' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: NAVY },
+  logo: { width: 90, height: 58, objectFit: 'contain' },
+  label: { fontSize: 7, color: '#64748b', textTransform: 'uppercase', marginBottom: 3, fontFamily: 'Helvetica-Bold' },
+  title: { fontSize: 15, fontFamily: 'Helvetica-Bold', color: NAVY },
+  number: { fontSize: 12, fontFamily: 'Helvetica-Bold', color: ORANGE, marginTop: 3 },
+  text: { fontSize: 8.5, color: '#475569', lineHeight: 1.35 },
+  strong: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#1e293b' },
+  metaRow: { flexDirection: 'row', marginBottom: 12 },
+  box: { flex: 1, backgroundColor: LIGHT, borderColor: BORDER, borderWidth: 1, borderRadius: 4, padding: 8 },
+  boxMiddle: { marginLeft: 8, marginRight: 8 },
+  section: { marginBottom: 10 },
+  sectionTitle: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', marginBottom: 5 },
+  table: { borderWidth: 1, borderColor: BORDER, borderRadius: 4 },
+  head: { flexDirection: 'row', backgroundColor: NAVY, padding: 6 },
+  headText: { color: '#ffffff', fontSize: 7.5, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase' },
+  row: { flexDirection: 'row', padding: 6, borderTopWidth: 1, borderTopColor: BORDER },
+  rowAlt: { backgroundColor: '#f8fafc' },
+  cell: { flex: 1, fontSize: 8.3, color: '#334155' },
+  amount: { width: 86, fontSize: 8.3, color: '#0f172a', textAlign: 'right', fontFamily: 'Helvetica-Bold' },
+  subtotal: { flexDirection: 'row', padding: 6, borderTopWidth: 1, borderTopColor: BORDER, backgroundColor: LIGHT },
+  subtotalLabel: { flex: 1, fontSize: 8.3, color: NAVY, fontFamily: 'Helvetica-Bold' },
+  subtotalAmount: { width: 86, fontSize: 8.3, color: NAVY, textAlign: 'right', fontFamily: 'Helvetica-Bold' },
+  totalBox: { marginTop: 8, marginBottom: 12, alignItems: 'flex-end' },
+  totalInner: { width: 250, backgroundColor: NAVY, borderRadius: 6, padding: 10, flexDirection: 'row' },
+  totalLabel: { flex: 1, color: '#ffffff', fontSize: 10, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase' },
+  totalValue: { color: '#ffffff', fontSize: 13, fontFamily: 'Helvetica-Bold' },
+  notes: { backgroundColor: LIGHT, borderLeftWidth: 3, borderLeftColor: NAVY, padding: 8, marginBottom: 10 },
+  conditions: { borderWidth: 1, borderColor: BORDER, borderRadius: 4, padding: 8, marginTop: 4 },
+  condText: { fontSize: 7.5, color: '#475569', lineHeight: 1.35, marginBottom: 2 },
+  infoSection: { marginBottom: 11 },
+  infoTitle: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', marginBottom: 5, paddingBottom: 3, borderBottomWidth: 1, borderBottomColor: BORDER },
+  infoBox: { borderWidth: 1, borderColor: BORDER, borderRadius: 4, padding: 8, marginBottom: 7 },
+  infoBoxBlue: { backgroundColor: LIGHT, borderWidth: 1, borderColor: BORDER, borderRadius: 4, padding: 8, marginBottom: 7 },
+  infoBoxWarn: { backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', borderRadius: 4, padding: 8, marginBottom: 7 },
+  infoText: { fontSize: 8, color: '#475569', lineHeight: 1.4, marginBottom: 3 },
+  infoStrong: { fontSize: 8, color: '#1e293b', fontFamily: 'Helvetica-Bold', lineHeight: 1.4, marginBottom: 3 },
+  twoCol: { flexDirection: 'row', marginBottom: 8 },
+  colLeft: { flex: 1, marginRight: 8 },
+  colRight: { flex: 1 },
+  miniTable: { borderWidth: 1, borderColor: BORDER, borderRadius: 4, marginBottom: 8 },
+  miniHead: { flexDirection: 'row', backgroundColor: NAVY, padding: 5 },
+  miniHeadText: { color: '#ffffff', fontSize: 7.5, fontFamily: 'Helvetica-Bold' },
+  miniRow: { flexDirection: 'row', padding: 5, borderTopWidth: 1, borderTopColor: BORDER },
+  miniCell: { flex: 1, fontSize: 7.5, color: '#475569', lineHeight: 1.3 },
+  miniCellBold: { flex: 1, fontSize: 7.5, color: '#1e293b', fontFamily: 'Helvetica-Bold', lineHeight: 1.3 },
+  footer: { position: 'absolute', bottom: 22, left: 34, right: 34, borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 6, flexDirection: 'row', justifyContent: 'space-between' },
   footerText: { fontSize: 7, color: '#94a3b8' },
-  footerBold: { fontSize: 7, color: NAVY, fontFamily: 'Helvetica-Bold' },
-
-  // Page 2
-  p2header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: NAVY },
-  p2section: { marginBottom: 10 },
-  p2title: { fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, paddingBottom: 3, borderBottomWidth: 1, borderBottomColor: BORDER },
-  p2subtitle: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#334155', marginTop: 4, marginBottom: 2 },
-  p2text: { fontSize: 7, color: '#475569', marginBottom: 2, lineHeight: 1.35 },
-  p2highlight: { fontSize: 7, color: '#334155', fontFamily: 'Helvetica-Bold', marginBottom: 2 },
-  p2box: { backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderColor: BORDER, padding: '6 10', marginBottom: 8 },
-  p2row: { flexDirection: 'row', gap: 10 },
-  p2col: { flex: 1 },
-  p2bankBox: { backgroundColor: '#eff6ff', borderRadius: 4, borderWidth: 1, borderColor: '#bfdbfe', padding: '6 10', marginTop: 6 },
-  p2bankTitle: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: NAVY, marginBottom: 3 },
-  p2bankText: { fontSize: 7, color: '#1e40af', marginBottom: 1.5 },
-  p2warning: { backgroundColor: '#fff7ed', borderRadius: 4, borderWidth: 1, borderColor: '#fed7aa', padding: '5 8', marginBottom: 5 },
-  p2warningText: { fontSize: 7, color: '#92400e', lineHeight: 1.35 },
 })
 
 type LineItem = { label: string; amount: number }
@@ -111,279 +89,290 @@ interface QuotationPdfProps {
   otherTotal: number
   grandTotal: number
   notes?: string | null
-  deliveryCity?: string | null
 }
 
 const modeLabel: Record<string, string> = {
-  LCL: 'LCL (Carga Consolidada)', FCL20: 'FCL 20GP', FCL40: 'FCL 40GP', FCL40HC: 'FCL 40HQ', AIR: 'Aéreo',
+  LCL: 'LCL',
+  FCL20: 'FCL 20GP',
+  FCL40: 'FCL 40GP',
+  FCL40HC: 'FCL 40HQ',
+  AIR: 'Aereo',
 }
 
-function fmt(n: number) { return `$${n.toFixed(2)}` }
+function money(value: number) {
+  return `$${Number(value || 0).toFixed(2)}`
+}
 
-function LineTable({ title, dot, items, subtotalLabel, subtotal, currency }: {
-  title: string; dot?: string; items: LineItem[]; subtotalLabel: string; subtotal: number; currency: string
+function dateLabel(value: string) {
+  return new Date(value).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
+function LineTable({ title, items, subtotal, currency }: {
+  title: string
+  items: LineItem[]
+  subtotal: number
+  currency: string
 }) {
-  if (items.length === 0) return null
+  if (!items.length) return null
   return (
     <View style={s.section}>
-      <View style={s.sectionHeader}>
-        <View style={[s.sectionDot, dot ? { backgroundColor: dot } : {}]} />
-        <Text style={s.sectionTitle}>{title}</Text>
-      </View>
+      <Text style={s.sectionTitle}>{title}</Text>
       <View style={s.table}>
-        <View style={s.tableHead}>
-          <Text style={[s.tableHeadText, { flex: 1 }]}>Concepto</Text>
-          <Text style={[s.tableHeadText, { width: 80, textAlign: 'right' }]}>{currency}</Text>
+        <View style={s.head}>
+          <Text style={[s.headText, { flex: 1 }]}>Concepto</Text>
+          <Text style={[s.headText, { width: 86, textAlign: 'right' }]}>{currency}</Text>
         </View>
-        {items.map((item, i) => (
-          <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]}>
-            <Text style={s.tableCell}>{item.label}</Text>
-            <Text style={s.tableCellRight}>{fmt(item.amount)}</Text>
+        {items.map((item, index) => (
+          <View key={`${item.label}-${index}`} style={[s.row, index % 2 === 1 ? s.rowAlt : {}]}>
+            <Text style={s.cell}>{item.label}</Text>
+            <Text style={s.amount}>{money(item.amount)}</Text>
           </View>
         ))}
-        <View style={s.subtotalRow}>
-          <Text style={s.subtotalLabel}>{subtotalLabel}</Text>
-          <Text style={s.subtotalValue}>{fmt(subtotal)}</Text>
+        <View style={s.subtotal}>
+          <Text style={s.subtotalLabel}>Subtotal</Text>
+          <Text style={s.subtotalAmount}>{money(subtotal)}</Text>
         </View>
       </View>
     </View>
   )
 }
 
+function Footer({ number, page }: { number: string; page: string }) {
+  return (
+    <View style={s.footer}>
+      <Text style={s.footerText}>Global Trade Logistics S.A.S. - Ecuador</Text>
+      <Text style={s.footerText}>{number}</Text>
+      <Text style={s.footerText}>{page}</Text>
+    </View>
+  )
+}
+
+function Bullet({ children }: { children: string }) {
+  return <Text style={s.infoText}>- {children}</Text>
+}
+
 export default function QuotationPdf(props: QuotationPdfProps) {
-  const qty = props.cbm ? `${props.cbm} CBM` : props.containers ? `${props.containers} contenedor${props.containers !== 1 ? 'es' : ''}` : ''
-  const destFinal = props.deliveryCity === 'UIO' ? 'Quito' : props.deliveryCity === 'OTRA' ? 'destino final' : 'Guayaquil'
+  const quantity = props.cbm
+    ? `${props.cbm} CBM`
+    : props.containers
+      ? `${props.containers} contenedor${props.containers === 1 ? '' : 'es'}`
+      : 'A confirmar'
 
   return (
     <Document>
       <Page size="A4" style={s.page}>
-
-        {/* Header */}
         <View style={s.header}>
-          <View style={s.logoBlock}>
-            <Image src={LOGO_PATH} style={{ width: 70, height: 70, objectFit: 'contain' }} />
+          <View>
+            <Image src={LOGO_PATH} style={s.logo} />
+            <Text style={s.text}>Global Trade Logistics S.A.S.</Text>
           </View>
-          <View style={s.quoteInfo}>
-            <Text style={s.quoteLabel}>Cotización de Flete</Text>
-            <Text style={s.quoteNumber}>{props.number}</Text>
-            <Text style={s.quoteDate}>Emisión: {new Date(props.issueDate).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
-            <Text style={s.quoteDate}>Válida hasta: {new Date(props.validUntil).toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={s.label}>Cotizacion de flete</Text>
+            <Text style={s.title}>COTIZACION</Text>
+            <Text style={s.number}>{props.number}</Text>
+            <Text style={s.text}>Emision: {dateLabel(props.issueDate)}</Text>
+            <Text style={s.text}>Valida hasta: {dateLabel(props.validUntil)}</Text>
           </View>
         </View>
 
-        {/* Client + Route */}
         <View style={s.metaRow}>
-          <View style={s.metaBox}>
-            <Text style={s.metaLabel}>Cliente</Text>
-            <Text style={s.metaValue}>{props.customerName}</Text>
-            {props.customerEmail && <Text style={s.metaSub}>{props.customerEmail}</Text>}
-            {props.customerPhone && <Text style={s.metaSub}>{props.customerPhone}</Text>}
+          <View style={s.box}>
+            <Text style={s.label}>Cliente</Text>
+            <Text style={s.strong}>{props.customerName}</Text>
+            {props.customerEmail && <Text style={s.text}>{props.customerEmail}</Text>}
+            {props.customerPhone && <Text style={s.text}>{props.customerPhone}</Text>}
           </View>
-          <View style={s.metaBox}>
-            <Text style={s.metaLabel}>Ruta</Text>
-            <Text style={s.metaValue}>{props.originPort} → {props.destinationPort}</Text>
-            <Text style={s.metaSub}>{modeLabel[props.mode] ?? props.mode} · {props.incoterm}</Text>
-            {qty && <Text style={s.metaSub}>Cantidad: {qty}</Text>}
-            {props.productDesc && <Text style={s.metaSub}>Carga: {props.productDesc}</Text>}
+          <View style={[s.box, s.boxMiddle]}>
+            <Text style={s.label}>Ruta</Text>
+            <Text style={s.strong}>{props.originPort} - {props.destinationPort}</Text>
+            <Text style={s.text}>{props.originCountry}</Text>
+            <Text style={s.text}>{modeLabel[props.mode] ?? props.mode} · {props.incoterm}</Text>
           </View>
-          <View style={s.metaBox}>
-            <Text style={s.metaLabel}>Tránsito</Text>
-            {props.transitDaysMin && props.transitDaysMax
-              ? <Text style={s.metaValue}>{props.transitDaysMin}–{props.transitDaysMax} días</Text>
-              : <Text style={s.metaValue}>A confirmar</Text>}
-            {props.frequency && <Text style={s.metaSub}>{props.frequency}</Text>}
-            <Text style={s.metaSub}>Moneda: {props.currency}</Text>
+          <View style={s.box}>
+            <Text style={s.label}>Carga</Text>
+            <Text style={s.strong}>{quantity}</Text>
+            {props.productDesc && <Text style={s.text}>{props.productDesc}</Text>}
+            {props.transitDaysMin && props.transitDaysMax && (
+              <Text style={s.text}>Transito: {props.transitDaysMin}-{props.transitDaysMax} dias</Text>
+            )}
+            {props.frequency && <Text style={s.text}>{props.frequency}</Text>}
           </View>
         </View>
 
-        {/* Block 1 */}
-        <LineTable
-          title="Bloque 1 — Transporte Internacional"
-          items={props.intlCharges}
-          subtotalLabel="Subtotal Transporte Internacional"
-          subtotal={props.intlTotal}
-          currency={props.currency}
-        />
+        <LineTable title="Bloque 1 - Transporte internacional" items={props.intlCharges} subtotal={props.intlTotal} currency={props.currency} />
+        <LineTable title="Bloque 2 - Gastos locales GTL" items={props.localCharges} subtotal={props.localTotal} currency={props.currency} />
+        <LineTable title="Bloque 3 - Otros costos" items={props.otherCharges} subtotal={props.otherTotal} currency={props.currency} />
 
-        {/* Block 2 */}
-        <LineTable
-          title="Bloque 2 — Gastos Locales GTL"
-          dot={BLUE}
-          items={props.localCharges}
-          subtotalLabel="Subtotal Gastos Locales"
-          subtotal={props.localTotal}
-          currency={props.currency}
-        />
-
-        {/* Block 3 */}
-        <LineTable
-          title="Bloque 3 — Otros Costos"
-          dot="#64748b"
-          items={props.otherCharges}
-          subtotalLabel="Subtotal Otros Costos"
-          subtotal={props.otherTotal}
-          currency={props.currency}
-        />
-
-        {/* Grand Total */}
         <View style={s.totalBox}>
           <View style={s.totalInner}>
-            <Text style={s.totalLabel}>Total General</Text>
-            <Text style={s.totalValue}>{fmt(props.grandTotal)}</Text>
+            <Text style={s.totalLabel}>Total general</Text>
+            <Text style={s.totalValue}>{money(props.grandTotal)}</Text>
           </View>
         </View>
 
-        {/* Notes */}
         {props.notes && (
-          <View style={{ marginBottom: 12 }}>
-            <Text style={[s.condTitle, { marginBottom: 3 }]}>Observaciones</Text>
-            <Text style={[s.condItem, { color: '#334155' }]}>{props.notes}</Text>
+          <View style={s.notes}>
+            <Text style={s.label}>Observaciones</Text>
+            <Text style={s.text}>{props.notes}</Text>
           </View>
         )}
 
-        {/* Conditions */}
         <View style={s.conditions}>
-          <Text style={s.condTitle}>Condiciones Comerciales</Text>
-          <Text style={s.condItem}>• Cotización válida hasta la fecha indicada, sujeta a disponibilidad de espacio y confirmación de la naviera.</Text>
-          <Text style={s.condItem}>• Los valores son referenciales y pueden variar si cambia el volumen (CBM) o el peso de la carga.</Text>
-          <Text style={s.condItem}>• Los aranceles e impuestos de importación se calculan por GTL y se pagan directamente al SENAE — ver página 2.</Text>
-          <Text style={s.condItem}>• Para confirmar reserva, contactar a GTL con al menos 7 días de anticipación al embarque.</Text>
+          <Text style={s.label}>Condiciones comerciales</Text>
+          <Text style={s.condText}>- Cotizacion sujeta a disponibilidad de espacio y confirmacion de la naviera.</Text>
+          <Text style={s.condText}>- Valores referenciales; pueden variar por volumen, peso, tipo de carga o cambios del proveedor.</Text>
+          <Text style={s.condText}>- Aranceles, impuestos SENAE, bodegajes y gastos portuarios se calculan segun documentos finales.</Text>
+          <Text style={s.condText}>- Para confirmar reserva, contactar a GTL con al menos 7 dias de anticipacion al embarque.</Text>
         </View>
 
-        {/* Footer */}
-        <View style={s.footer}>
-          <Text style={s.footerText}>Global Trade Logistics S.A.S. · Ecuador</Text>
-          <Text style={s.footerBold}>{props.number}</Text>
-          <Text style={s.footerText}>Página 1 de 2</Text>
-        </View>
-
+        <Footer number={props.number} page="Pagina 1 de 3" />
       </Page>
 
-      {/* ── PÁGINA 2: Condiciones ── */}
       <Page size="A4" style={s.page}>
-
-        {/* Header p2 */}
-        <View style={s.p2header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Image src={LOGO_PATH} style={{ width: 40, height: 40, objectFit: 'contain' }} />
-            <View>
-              <Text style={[s.logoName, { fontSize: 11 }]}>GLOBAL TRADE LOGISTICS</Text>
-              <Text style={s.logoSub}>Agente de Carga Internacional · Ecuador</Text>
-            </View>
+        <View style={s.header}>
+          <View>
+            <Image src={LOGO_PATH} style={s.logo} />
+            <Text style={s.text}>Global Trade Logistics S.A.S.</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[s.quoteNumber, { fontSize: 11 }]}>{props.number}</Text>
-            <Text style={s.logoSub}>Condiciones Comerciales</Text>
+            <Text style={s.label}>Condiciones del servicio</Text>
+            <Text style={s.title}>ALCANCE Y PAGOS</Text>
+            <Text style={s.number}>{props.number}</Text>
           </View>
         </View>
 
-        {/* 1. Alcance del servicio */}
-        <View style={s.p2section}>
-          <Text style={s.p2title}>1. Alcance del Servicio</Text>
-          <View style={s.p2row}>
-            {/* GTL hace */}
-            <View style={[s.p2col, { backgroundColor: '#f0f7ff', borderRadius: 4, borderWidth: 1, borderColor: '#bfdbfe', padding: '6 8', marginRight: 6 }]}>
-              <Text style={[s.p2subtitle, { color: NAVY, marginTop: 0, marginBottom: 5 }]}>GTL GESTIONA POR USTED:</Text>
-              <Text style={s.p2text}>• Coordinación del transporte internacional</Text>
-              <Text style={s.p2text}>• Agenciamiento aduanero en Ecuador (SENAE)</Text>
-              <Text style={s.p2text}>• Cálculo de aranceles e impuestos de importación con base en la proforma de la naviera</Text>
-              <Text style={s.p2text}>• Transmisión y seguimiento de la declaración aduanera</Text>
-              <Text style={s.p2text}>• Transporte nacional hasta {destFinal}</Text>
-              <Text style={s.p2text}>• Asesoría y seguimiento en cada etapa del proceso</Text>
+        <View style={s.infoSection}>
+          <Text style={s.infoTitle}>1. Alcance del servicio</Text>
+          <View style={s.twoCol}>
+            <View style={[s.infoBoxBlue, s.colLeft]}>
+              <Text style={s.infoStrong}>GTL gestiona por usted:</Text>
+              <Bullet>Coordinacion del transporte internacional.</Bullet>
+              <Bullet>Agenciamiento aduanero en Ecuador ante SENAE.</Bullet>
+              <Bullet>Calculo estimado de aranceles e impuestos de importacion.</Bullet>
+              <Bullet>Transmision y seguimiento de la declaracion aduanera.</Bullet>
+              <Bullet>Coordinacion de transporte nacional cuando aplique.</Bullet>
+              <Bullet>Asesoria y seguimiento operativo durante el proceso.</Bullet>
             </View>
-            {/* Cliente paga directo */}
-            <View style={[s.p2col, { backgroundColor: '#f8fafc', borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: '#cbd5e1', borderLeftColor: '#475569', padding: '6 8' }]}>
-              <Text style={[s.p2subtitle, { color: '#1e293b', marginTop: 0, marginBottom: 5 }]}>EL CLIENTE PAGA DIRECTAMENTE A:</Text>
-              <Text style={[s.p2text, { color: '#1e293b', fontFamily: 'Helvetica-Bold', marginBottom: 3 }]}>SENAE — Aduana Ecuador:</Text>
-              <Text style={[s.p2text, { color: '#334155' }]}>• DAI · FODINFA · ICE · IVA importación</Text>
-              <Text style={[s.p2text, { color: '#1e293b', marginTop: 4, marginBottom: 3, fontFamily: 'Helvetica-Bold' }]}>Terminal / Puerto marítimo:</Text>
-              <Text style={[s.p2text, { color: '#334155' }]}>• Bodegajes y servicios portuarios</Text>
-              <Text style={[s.p2text, { color: '#334155' }]}>• Scanners y aforos físicos</Text>
-              <Text style={[s.p2text, { color: '#475569', marginTop: 5, lineHeight: 1.5, fontFamily: 'Helvetica-Oblique' }]}>Nota: GTL calcula estos valores con anticipación e informa al cliente. El pago siempre es directo a la entidad correspondiente, nunca a GTL.</Text>
+            <View style={[s.infoBox, s.colRight]}>
+              <Text style={s.infoStrong}>El cliente paga directamente a:</Text>
+              <Bullet>SENAE: DAI, FODINFA, ICE e IVA de importacion.</Bullet>
+              <Bullet>Terminal o puerto: bodegajes, servicios portuarios, scanners y aforos fisicos.</Bullet>
+              <Bullet>Entidades regulatorias cuando existan permisos, certificados o inspecciones especiales.</Bullet>
+              <Text style={s.infoText}>GTL calcula y comunica estos valores, pero el pago se realiza a la entidad correspondiente.</Text>
             </View>
           </View>
         </View>
 
-        {/* 2. Aranceles */}
-        <View style={s.p2section}>
-          <Text style={s.p2title}>2. Aranceles e Impuestos de Importación</Text>
-          <View style={{ backgroundColor: '#f0f4ff', borderRadius: 4, borderWidth: 1, borderLeftWidth: 3, borderColor: BORDER, borderLeftColor: NAVY, padding: '5 10', marginBottom: 6 }}>
-            <Text style={[s.p2highlight, { color: NAVY, marginBottom: 4 }]}>¿Cómo funcionan los aranceles?</Text>
-            <Text style={s.p2text}>GTL calcula los aranceles e impuestos de importación con base en los valores de la proforma comercial y la proforma de la naviera. Estos cálculos se entregan al cliente antes del despacho aduanero para su revisión y aprobación.</Text>
-            <Text style={[s.p2text, { marginTop: 4 }]}>El pago se realiza <Text style={{ fontFamily: 'Helvetica-Bold' }}>directamente al SENAE</Text> a través de los canales oficiales — nunca a través de GTL. La liquidación final depende de la verificación documental y el canal de aforo asignado.</Text>
+        <View style={s.infoSection}>
+          <Text style={s.infoTitle}>2. Aranceles e impuestos de importacion</Text>
+          <View style={s.infoBoxBlue}>
+            <Text style={s.infoText}>Los aranceles e impuestos se calculan con base en los documentos finales de la carga, la partida arancelaria, el valor CIF y la normativa vigente de SENAE. Los valores estimados pueden variar luego de la revision documental o del canal de aforo asignado.</Text>
           </View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={s.miniTable}>
+            <View style={s.miniHead}>
+              <Text style={[s.miniHeadText, { flex: 1 }]}>Concepto</Text>
+              <Text style={[s.miniHeadText, { flex: 2 }]}>Descripcion</Text>
+            </View>
             {[
-              ['DAI', 'Arancel sobre el valor CIF de la mercadería'],
-              ['FODINFA', '0.5% sobre el valor CIF'],
-              ['ICE', 'Aplica según el tipo de producto'],
-              ['IVA', '15% sobre base imponible total'],
-            ].map(([label, desc], i) => (
-              <View key={i} style={{ flex: 1, backgroundColor: LIGHT_GRAY, borderRadius: 4, borderWidth: 1, borderColor: BORDER, padding: '5 8' }}>
-                <Text style={[s.p2highlight, { color: NAVY, marginBottom: 2, fontSize: 8 }]}>{label}</Text>
-                <Text style={[s.p2text, { marginBottom: 0, fontSize: 7 }]}>{desc}</Text>
+              ['DAI', 'Arancel sobre el valor CIF segun partida arancelaria.'],
+              ['FODINFA', 'Contribucion calculada sobre el valor CIF.'],
+              ['ICE', 'Aplica solo para productos gravados por normativa.'],
+              ['IVA importacion', 'Se calcula sobre la base imponible de importacion.'],
+            ].map(([label, description], index) => (
+              <View key={label} style={[s.miniRow, index % 2 === 1 ? { backgroundColor: '#f8fafc' } : {}]}>
+                <Text style={s.miniCellBold}>{label}</Text>
+                <Text style={[s.miniCell, { flex: 2 }]}>{description}</Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* 3. Condiciones de pago */}
-        <View style={s.p2section}>
-          <Text style={s.p2title}>3. Proceso y Condiciones de Pago</Text>
-          <View style={{ borderWidth: 1, borderColor: BORDER, borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
-            <View style={{ flexDirection: 'row', backgroundColor: NAVY, padding: '4 10' }}>
-              <Text style={[s.p2highlight, { flex: 1, color: '#ffffff', marginBottom: 0 }]}>Concepto</Text>
-              <Text style={[s.p2highlight, { width: 80, color: '#ffffff', marginBottom: 0 }]}>A quién</Text>
-              <Text style={[s.p2highlight, { width: 130, color: '#ffffff', marginBottom: 0 }]}>Cuándo</Text>
+        <View style={s.infoSection}>
+          <Text style={s.infoTitle}>3. Proceso y condiciones de pago</Text>
+          <View style={s.miniTable}>
+            <View style={s.miniHead}>
+              <Text style={s.miniHeadText}>Concepto</Text>
+              <Text style={s.miniHeadText}>A quien se paga</Text>
+              <Text style={s.miniHeadText}>Momento de pago</Text>
             </View>
             {[
-              ['Flete internacional', 'GTL', 'Al arribo de la carga a Ecuador'],
-              ['Agente de aduana', 'GTL', 'Al obtener la salida autorizada (DAE)'],
-              ['Transporte nacional', 'GTL', 'Al despachar hacia el destino final'],
-              ['Póliza de seguro (si aplica)', 'GTL', 'Al coordinarse el embarque'],
-              ['Aranceles e impuestos', 'SENAE', 'Antes del desaduanamiento'],
-              ['Servicios portuarios', 'Terminal', 'Según facturación del terminal'],
-            ].map(([svc, who, when], i) => (
-              <View key={i} style={{ flexDirection: 'row', padding: '4 10', backgroundColor: i % 2 === 1 ? LIGHT_GRAY : '#ffffff', borderTopWidth: 1, borderTopColor: BORDER }}>
-                <Text style={[s.p2text, { flex: 1, marginBottom: 0 }]}>{svc}</Text>
-                <Text style={[s.p2text, { width: 80, marginBottom: 0, fontFamily: 'Helvetica-Bold', color: who === 'GTL' ? NAVY : '#b91c1c' }]}>{who}</Text>
-                <Text style={[s.p2text, { width: 130, marginBottom: 0 }]}>{when}</Text>
+              ['Flete internacional', 'GTL', 'Al arribo o segun reserva confirmada.'],
+              ['Agente de aduana', 'GTL', 'Durante el proceso de nacionalizacion.'],
+              ['Transporte nacional', 'GTL', 'Al coordinar despacho al destino final.'],
+              ['Poliza de seguro', 'GTL', 'Al coordinar el embarque si fue solicitada.'],
+              ['Aranceles e impuestos', 'SENAE', 'Antes del desaduanamiento.'],
+              ['Servicios portuarios', 'Terminal', 'Segun facturacion del terminal.'],
+            ].map(([concept, who, when], index) => (
+              <View key={concept} style={[s.miniRow, index % 2 === 1 ? { backgroundColor: '#f8fafc' } : {}]}>
+                <Text style={s.miniCell}>{concept}</Text>
+                <Text style={s.miniCellBold}>{who}</Text>
+                <Text style={s.miniCell}>{when}</Text>
               </View>
             ))}
           </View>
-
-          {/* Datos bancarios */}
-          <View style={s.p2bankBox}>
-            <Text style={s.p2bankTitle}>Datos bancarios para pagos a GTL</Text>
-            <View style={{ flexDirection: 'row', gap: 16 }}>
-              <Text style={s.p2bankText}>Banco: Produbanco</Text>
-              <Text style={s.p2bankText}>Tipo: Cta. Corriente</Text>
-              <Text style={s.p2bankText}>N°: 27059115225</Text>
-            </View>
-            <Text style={[s.p2bankText, { marginTop: 2 }]}>Beneficiario: Global Trade Logistics S.A.S. · RUC: 1793228976001</Text>
+          <View style={s.infoBoxBlue}>
+            <Text style={s.infoStrong}>Datos bancarios para pagos a GTL</Text>
+            <Text style={s.infoText}>Produbanco - Cuenta corriente 27059115225</Text>
+            <Text style={s.infoText}>Beneficiario: Globaltradelogistics S.A.S. - RUC: 1793228976001</Text>
+            <Text style={s.infoText}>Enviar comprobante a: aduanas@globaltradelogisticsec.com</Text>
           </View>
         </View>
 
-        {/* 4. Condiciones Generales */}
-        <View style={s.p2section}>
-          <Text style={s.p2title}>4. Condiciones Generales</Text>
-          <View style={s.p2box}>
-            <Text style={s.p2text}>• Esta cotización aplica para <Text style={{ fontFamily: 'Helvetica-Bold' }}>carga general</Text>. Cargas peligrosas, sobredimensionadas o especiales requieren cotización aparte.</Text>
-            <Text style={s.p2text}>• Los valores de flete están sujetos a disponibilidad de espacio y confirmación de la naviera a la fecha de reserva.</Text>
-            <Text style={s.p2text}>• Los tiempos de tránsito son referenciales y pueden variar por congestión portuaria o demoras en origen sin previo aviso.</Text>
-            <Text style={s.p2text}>• GTL no se hace responsable por multas, almacenajes extendidos ni demoras causadas por documentación incompleta del cliente o restricciones SENAE.</Text>
-            <Text style={s.p2text}>• Para confirmar la reserva, contactar a GTL con mínimo <Text style={{ fontFamily: 'Helvetica-Bold' }}>7 días de anticipación</Text> al embarque. La reserva se confirma con el anticipo acordado.</Text>
-            <Text style={[s.p2text, { marginBottom: 0 }]}>• El seguro de carga <Text style={{ fontFamily: 'Helvetica-Bold' }}>no está incluido</Text> salvo solicitud expresa por escrito. GTL recomienda asegurar la mercadería por el valor CIF + 10%.</Text>
+        <Footer number={props.number} page="Pagina 2 de 3" />
+      </Page>
+
+      <Page size="A4" style={s.page}>
+        <View style={s.header}>
+          <View>
+            <Image src={LOGO_PATH} style={s.logo} />
+            <Text style={s.text}>Global Trade Logistics S.A.S.</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={s.label}>Condiciones del servicio</Text>
+            <Text style={s.title}>CONDICIONES GENERALES</Text>
+            <Text style={s.number}>{props.number}</Text>
           </View>
         </View>
 
-        {/* Footer p2 */}
-        <View style={[s.footer, { position: 'absolute', bottom: 22, left: 38, right: 38 }]}>
-          <Text style={s.footerText}>Global Trade Logistics S.A.S. · Ecuador</Text>
-          <Text style={s.footerBold}>{props.number}</Text>
-          <Text style={s.footerText}>Página 2 de 2</Text>
+        <View style={s.infoSection}>
+          <Text style={s.infoTitle}>4. Condiciones generales</Text>
+          <View style={s.infoBox}>
+            <Bullet>Esta cotizacion aplica para carga general. Cargas peligrosas, sobredimensionadas, refrigeradas o especiales requieren revision y cotizacion independiente.</Bullet>
+            <Bullet>Los valores de flete estan sujetos a disponibilidad de espacio, confirmacion de naviera, aerolinea o proveedor logistico.</Bullet>
+            <Bullet>Los tiempos de transito son referenciales y pueden variar por congestion portuaria, inspecciones, clima, cambios operativos o demoras en origen/destino.</Bullet>
+            <Bullet>La cotizacion puede variar si cambia el volumen, peso, cantidad de bultos, descripcion de mercaderia, incoterm o destino final.</Bullet>
+            <Bullet>Documentos incompletos, inconsistentes o entregados fuera de tiempo pueden generar demoras, multas, almacenajes o costos adicionales a cargo del cliente.</Bullet>
+            <Bullet>El seguro de carga no esta incluido salvo solicitud expresa por escrito. GTL recomienda asegurar la mercaderia por el valor CIF mas un margen de cobertura.</Bullet>
+          </View>
         </View>
 
+        <View style={s.infoSection}>
+          <Text style={s.infoTitle}>5. Responsabilidades del cliente</Text>
+          <View style={s.infoBoxBlue}>
+            <Bullet>Entregar factura comercial, packing list, documentos de transporte y permisos requeridos de forma completa y oportuna.</Bullet>
+            <Bullet>Confirmar descripcion real de la mercaderia, valores, cantidades, peso, volumen y partida arancelaria cuando aplique.</Bullet>
+            <Bullet>Realizar pagos a SENAE, terminales, proveedores o entidades regulatorias dentro de los plazos indicados.</Bullet>
+            <Bullet>Informar si la carga requiere permiso, inspeccion, registro sanitario, certificacion tecnica, control previo o manejo especial.</Bullet>
+          </View>
+        </View>
+
+        <View style={s.infoSection}>
+          <Text style={s.infoTitle}>6. Exclusiones y costos adicionales</Text>
+          <View style={s.infoBoxWarn}>
+            <Bullet>No incluye multas, almacenajes extendidos, demoras, sobreestadias, inspecciones no previstas, aforos fisicos, gastos por rectificaciones o documentos incompletos.</Bullet>
+            <Bullet>No incluye costos derivados de cambios normativos, restricciones de importacion, abandono de carga, reembarques, destruccion o retenciones por autoridad competente.</Bullet>
+            <Bullet>Todo costo adicional sera informado al cliente tan pronto sea notificado por la naviera, terminal, SENAE, proveedor logistico o autoridad correspondiente.</Bullet>
+          </View>
+        </View>
+
+        <View style={s.infoSection}>
+          <Text style={s.infoTitle}>7. Aceptacion de la cotizacion</Text>
+          <View style={s.infoBox}>
+            <Text style={s.infoText}>La aprobacion escrita por WhatsApp, correo electronico o cualquier medio verificable confirma que el cliente acepta los valores, alcance y condiciones descritas en esta cotizacion. Para reservar espacio o iniciar gestion documental, GTL podra solicitar anticipo o confirmacion formal del servicio.</Text>
+          </View>
+        </View>
+
+        <Footer number={props.number} page="Pagina 3 de 3" />
       </Page>
     </Document>
   )

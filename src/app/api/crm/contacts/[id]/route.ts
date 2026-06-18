@@ -19,6 +19,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         include: { createdBy: { select: { id: true, name: true } } },
         orderBy: { createdAt: 'desc' },
       },
+      appointments: {
+        orderBy: { startAt: 'asc' },
+      },
+      serviceInvoices: {
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      },
     },
   })
 

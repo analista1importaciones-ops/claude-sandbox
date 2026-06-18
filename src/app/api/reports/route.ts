@@ -12,11 +12,29 @@ export async function GET() {
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
 
-  const [deals, dealsThisMonth, dealsLastMonth, contacts] = await Promise.all([
+  const endOfToday = new Date(now)
+  endOfToday.setHours(23, 59, 59, 999)
+
+  const [
+    deals,
+    dealsThisMonth,
+    dealsLastMonth,
+    contacts,
+    quotationsThisMonth,
+    courierThisMonth,
+    appointmentsUpcoming,
+    unreadConversations,
+    pendingScheduledMessages,
+  ] = await Promise.all([
     prisma.deal.findMany({ select: { stage: true, estimatedValue: true, currency: true } }),
     prisma.deal.count({ where: { createdAt: { gte: startOfMonth } } }),
     prisma.deal.count({ where: { createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
     prisma.contact.count(),
+    prisma.quotation.count({ where: { createdAt: { gte: startOfMonth } } }),
+    prisma.courierQuotation.count({ where: { createdAt: { gte: startOfMonth } } }),
+    prisma.appointment.count({ where: { startAt: { gte: now } } }),
+    prisma.waConversation.count({ where: { unreadCount: { gt: 0 } } }),
+    prisma.scheduledMessage.count({ where: { sent: false, sendAt: { lte: endOfToday } } }),
   ])
 
   const STAGES = ['PAUTA', 'CONTACTADO', 'COTIZADO', 'SEGUIMIENTO', 'NEGOCIANDO', 'CERRADO_GANADO', 'PERDIDO']
@@ -36,6 +54,20 @@ export async function GET() {
 
   return NextResponse.json({
     pipeline,
-    summary: { total, won, lost, winRate: total > 0 ? Math.round((won / (won + lost || 1)) * 100) : 0, wonValue, dealsThisMonth, dealsLastMonth, contacts },
+    summary: {
+      total,
+      won,
+      lost,
+      winRate: total > 0 ? Math.round((won / (won + lost || 1)) * 100) : 0,
+      wonValue,
+      dealsThisMonth,
+      dealsLastMonth,
+      contacts,
+      quotationsThisMonth,
+      courierThisMonth,
+      appointmentsUpcoming,
+      unreadConversations,
+      pendingScheduledMessages,
+    },
   })
 }

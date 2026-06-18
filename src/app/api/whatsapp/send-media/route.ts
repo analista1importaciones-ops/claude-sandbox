@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
   const to = form.get('to') as string
   const caption = (form.get('caption') as string) || ''
   const file = form.get('file') as File
+  const contactId = form.get('contactId') as string | null
+  const ptt = form.get('ptt') === 'true'
 
   if (!to || !file) return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
 
@@ -23,16 +25,44 @@ export async function POST(req: NextRequest) {
   const bytes = Buffer.from(await file.arrayBuffer())
   const mime = file.type
   const name = file.name
+  const shouldSendRecordedAudioAsDocument = ptt && mime.startsWith('audio/') && !mime.includes('ogg')
 
   let sentMsg: any
-  if (mime.startsWith('image/')) {
-    sentMsg = await __waSock.sendMessage(jid, { image: bytes, caption, mimetype: mime })
-  } else if (mime.startsWith('audio/')) {
-    sentMsg = await __waSock.sendMessage(jid, { audio: bytes, mimetype: mime, ptt: false })
-  } else if (mime.startsWith('video/')) {
-    sentMsg = await __waSock.sendMessage(jid, { video: bytes, caption, mimetype: mime })
-  } else {
-    sentMsg = await __waSock.sendMessage(jid, { document: bytes, mimetype: mime, fileName: name, caption })
+  let sentAsDocument = shouldSendRecordedAudioAsDocument
+  try {
+    if (mime.startsWith('image/')) {
+      sentMsg = await __waSock.sendMessage(jid, { image: bytes, caption, mimetype: mime })
+    } else if (shouldSendRecordedAudioAsDocument) {
+      sentMsg = await __waSock.sendMessage(jid, {
+        document: bytes,
+        mimetype: mime || 'audio/webm',
+        fileName: name,
+        caption: caption || 'Audio grabado',
+      })
+    } else if (mime.startsWith('audio/')) {
+      sentMsg = await __waSock.sendMessage(jid, { audio: bytes, mimetype: mime || 'audio/ogg; codecs=opus', ptt })
+    } else if (mime.startsWith('video/')) {
+      sentMsg = await __waSock.sendMessage(jid, { video: bytes, caption, mimetype: mime })
+    } else {
+      sentMsg = await __waSock.sendMessage(jid, { document: bytes, mimetype: mime, fileName: name, caption })
+    }
+  } catch (error) {
+    console.error('[WhatsApp] send media error:', error)
+    if (!mime.startsWith('audio/')) {
+      return NextResponse.json({ error: 'WhatsApp rechazó el archivo. Intenta enviarlo de nuevo.' }, { status: 500 })
+    }
+    try {
+      sentMsg = await __waSock.sendMessage(jid, {
+        document: bytes,
+        mimetype: mime || 'audio/webm',
+        fileName: name,
+        caption: caption || 'Audio grabado',
+      })
+      sentAsDocument = true
+    } catch (fallbackError) {
+      console.error('[WhatsApp] send audio fallback error:', fallbackError)
+      return NextResponse.json({ error: 'WhatsApp rechazó el audio. Intenta grabar de nuevo o adjuntarlo como archivo.' }, { status: 500 })
+    }
   }
 
   // Save media to disk
@@ -42,7 +72,7 @@ export async function POST(req: NextRequest) {
   const filename = `${sentMsg?.key?.id ?? Date.now()}.${ext}`
   fs.writeFileSync(path.join(MEDIA_DIR, filename), bytes)
   const mediaUrl = `/wa-media/${filename}`
-  const mediaType = mime.startsWith('image/') ? 'image' : mime.startsWith('audio/') ? 'audio' : mime.startsWith('video/') ? 'video' : 'document'
+  const mediaType = sentAsDocument ? 'document' : mime.startsWith('image/') ? 'image' : mime.startsWith('audio/') ? 'audio' : mime.startsWith('video/') ? 'video' : 'document'
 
   await prisma.whatsAppMessage.create({
     data: {
@@ -51,6 +81,7 @@ export async function POST(req: NextRequest) {
       messageId: sentMsg?.key?.id ?? `sent-${Date.now()}`,
       timestamp: new Date(),
       mediaUrl, mediaType,
+      contactId: contactId || null,
     },
   }).catch(() => {})
 
