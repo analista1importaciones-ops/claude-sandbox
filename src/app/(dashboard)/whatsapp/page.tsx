@@ -79,6 +79,7 @@ export default function WhatsAppPage() {
   const [showQR, setShowQR] = useState(false)
   const [newQRTitle, setNewQRTitle] = useState('')
   const [newQRBody, setNewQRBody] = useState('')
+  const [editingQR, setEditingQR] = useState<QuickReply | null>(null)
   const [notes, setNotes] = useState<InternalNote[]>([])
   const [newNote, setNewNote] = useState('')
   const [scheduled, setScheduled] = useState<ScheduledMsg[]>([])
@@ -298,6 +299,11 @@ export default function WhatsAppPage() {
   }
   async function deleteQR(id: string) {
     await fetch('/api/quick-replies/' + id, { method: 'DELETE' }); loadQuickReplies()
+  }
+  async function updateQR() {
+    if (!editingQR) return
+    await fetch(`/api/quick-replies/${editingQR.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editingQR.title, body: editingQR.body }) })
+    setEditingQR(null); loadQuickReplies()
   }
   async function scheduleMessage() {
     if (!schedBody.trim() || !schedAt || !selectedJid) return
@@ -635,12 +641,26 @@ export default function WhatsAppPage() {
             )}
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {safeQuickReplies.map(qr => (
-                <div key={qr.id} className="flex items-start gap-1 group">
-                  <button onClick={() => { setReply(qr.body); setActiveTab('chat') }} className="flex-1 text-left px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">
-                    <span className="font-medium">{qr.title}</span>
-                    <span className="block text-gray-400 truncate">{qr.body}</span>
-                  </button>
-                  <button onClick={() => deleteQR(qr.id)} className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 p-1 text-xs">x</button>
+                <div key={qr.id} className="group">
+                  {editingQR?.id === qr.id ? (
+                    <div className="space-y-1 p-1">
+                      <input value={editingQR.title} onChange={e => setEditingQR({ ...editingQR, title: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
+                      <textarea value={editingQR.body} onChange={e => setEditingQR({ ...editingQR, body: e.target.value })} rows={3} className="w-full border border-gray-200 rounded px-2 py-1 text-xs resize-none" />
+                      <div className="flex gap-1">
+                        <button onClick={updateQR} className="flex-1 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">Guardar</button>
+                        <button onClick={() => setEditingQR(null)} className="flex-1 py-1 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200">Cancelar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-1">
+                      <button onClick={() => { setReply(qr.body); setActiveTab('chat') }} className="flex-1 text-left px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">
+                        <span className="font-medium">{qr.title}</span>
+                        <span className="block text-gray-400 truncate">{qr.body}</span>
+                      </button>
+                      <button onClick={() => setEditingQR(qr)} className="opacity-0 group-hover:opacity-100 text-blue-300 hover:text-blue-500 p-1 text-xs">✎</button>
+                      <button onClick={() => deleteQR(qr.id)} className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 p-1 text-xs">x</button>
+                    </div>
+                  )}
                 </div>
               ))}
               {safeQuickReplies.length === 0 && <p className="text-xs text-gray-400">Sin respuestas guardadas</p>}
