@@ -44,6 +44,10 @@ export default function WhatsAppPage() {
   const [showQRPicker, setShowQRPicker] = useState(false)
   const [attachFile, setAttachFile] = useState<File | null>(null)
   const [convSearch, setConvSearch] = useState('')
+  const [recording, setRecording] = useState(false)
+  const [recSeconds, setRecSeconds] = useState(0)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Contact edit state
   const [editingContact, setEditingContact] = useState(false)
   const [contactForm, setContactForm] = useState({ name: '', phone: '', email: '', company: '', waName: '', tags: [] as string[], serviceLabel: 'OTRO' })
@@ -158,6 +162,48 @@ export default function WhatsAppPage() {
     } finally {
       setSavingContact(false)
     }
+  }
+
+  async function startRecording() {
+    if (!selectedJid) return
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/ogg;codecs=opus'
+      const mr = new MediaRecorder(stream, { mimeType })
+      const chunks: BlobPart[] = []
+      mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        const blob = new Blob(chunks, { type: mimeType })
+        const ext = mimeType.includes('webm') ? 'webm' : 'ogg'
+        const file = new File([blob], `audio.${ext}`, { type: mimeType })
+        const fd = new FormData()
+        fd.append('to', selectedJid!)
+        fd.append('file', file)
+        await fetch('/api/whatsapp/send-media', { method: 'POST', body: fd })
+        loadMessages(selectedJid!); loadConversations()
+        setRecording(false); setRecSeconds(0)
+      }
+      mr.start()
+      mediaRecorderRef.current = mr
+      setRecording(true); setRecSeconds(0)
+      recTimerRef.current = setInterval(() => setRecSeconds(s => s + 1), 1000)
+    } catch {
+      alert('No se pudo acceder al micrófono')
+    }
+  }
+
+  function stopRecording() {
+    if (recTimerRef.current) clearInterval(recTimerRef.current)
+    mediaRecorderRef.current?.stop()
+  }
+
+  function cancelRecording() {
+    if (recTimerRef.current) clearInterval(recTimerRef.current)
+    mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop())
+    if (mediaRecorderRef.current) mediaRecorderRef.current.onstop = null
+    mediaRecorderRef.current?.stop()
+    setRecording(false); setRecSeconds(0)
   }
 
   function toggleTag(tag: string) {
@@ -312,6 +358,14 @@ export default function WhatsAppPage() {
                       <button onClick={() => setAttachFile(null)} className="text-red-400 hover:text-red-600">x</button>
                     </div>
                   )}
+                  {recording ? (
+                    <div className="flex gap-3 items-center w-full bg-red-50 border border-red-200 rounded-full px-4 py-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                      <span className="text-sm text-red-600 font-medium flex-1">Grabando... {Math.floor(recSeconds/60)}:{String(recSeconds%60).padStart(2,'0')}</span>
+                      <button onClick={cancelRecording} className="text-xs text-gray-500 hover:text-gray-700 px-2">Cancelar</button>
+                      <button onClick={stopRecording} className="px-4 py-1 bg-red-500 text-white rounded-full text-sm hover:bg-red-600">Enviar</button>
+                    </div>
+                  ) : (
                   <div className="flex gap-2 items-center w-full">
                     <input ref={fileInputRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={e => setAttachFile(e.target.files?.[0] ?? null)} />
                     <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-blue-500" title="Adjuntar archivo">
@@ -334,8 +388,12 @@ export default function WhatsAppPage() {
                       )}
                     </div>
                     <input type="text" value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendReply()} placeholder="Escribe un mensaje..." className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+                    <button onClick={startRecording} className="p-2 text-gray-400 hover:text-red-500" title="Grabar audio">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                    </button>
                     <button onClick={sendReply} disabled={sending || (!reply.trim() && !attachFile)} className="px-4 py-2 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 disabled:opacity-50">Enviar</button>
                   </div>
+                  )}
                 </div>
               </>
             )}
