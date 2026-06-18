@@ -279,6 +279,8 @@ model Contact {
   company        String?
   email          String?
   phone          String?
+  waName         String?
+  tags           String[]
   source         LeadSource   @default(OTRO)
   serviceLabel   ServiceLabel @default(OTRO)
   assignedToId   String?
@@ -334,8 +336,17 @@ model WhatsAppMessage {
   contactId   String?
   mediaUrl    String?
   mediaType   String?
+  waName      String?
   contact     Contact? @relation(fields: [contactId], references: [id])
   createdAt   DateTime @default(now())
+}
+
+model WaConversation {
+  id          String   @id @default(cuid())
+  remoteJid   String   @unique
+  unreadCount Int      @default(0)
+  status      String   @default("OPEN")
+  updatedAt   DateTime @updatedAt
 }
 
 model WhatsAppTemplate {

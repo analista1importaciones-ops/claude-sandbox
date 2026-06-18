@@ -12,12 +12,19 @@ export async function GET() {
     include: { contact: { select: { name: true, id: true } } },
   })
 
+  const waConvs = await prisma.waConversation.findMany()
+  const convMap = new Map(waConvs.map(c => [c.remoteJid, c]))
+
+  const BLOCKED = ['status@broadcast', 'broadcast']
+
   const seen = new Set()
   const conversations = []
   for (const m of all) {
+    if (BLOCKED.some(b => m.remoteJid.includes(b))) continue
     if (!seen.has(m.remoteJid)) {
       seen.add(m.remoteJid)
-      conversations.push(m)
+      const conv = convMap.get(m.remoteJid)
+      conversations.push({ ...m, unreadCount: conv?.unreadCount ?? 0, convStatus: conv?.status ?? 'OPEN' })
     }
   }
 

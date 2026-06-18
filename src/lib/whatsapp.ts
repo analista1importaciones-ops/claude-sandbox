@@ -93,7 +93,10 @@ export async function startWhatsApp() {
       for (const msg of messages) {
         if (!msg.message) continue
         const jid = msg.key.remoteJid!
+        if (jid.includes('status@broadcast') || jid.includes('@broadcast')) continue
         const phone = jid.replace('@s.whatsapp.net', '').replace('@g.us', '')
+        const pushName = msg.pushName || null
+        const fromMe = msg.key.fromMe ?? false
         const msgType = Object.keys(msg.message)[0]
         const isMedia = ['imageMessage', 'audioMessage', 'videoMessage', 'documentMessage'].includes(msgType)
 
@@ -105,23 +108,38 @@ export async function startWhatsApp() {
           || `[${msgType.replace('Message', '')}]`
 
         let mediaData: { mediaUrl: string; mediaType: string } | null = null
-        if (isMedia) {
-          mediaData = await saveMedia(msg, msgType, msg.key.id!)
+        if (isMedia) mediaData = await saveMedia(msg, msgType, msg.key.id!)
+
+        // Auto-create or find contact from pushName
+        let contact = await prisma.contact.findFirst({ where: { phone: { contains: phone.slice(-8) } } })
+        if (!contact && !fromMe && pushName && jid.endsWith('@s.whatsapp.net')) {
+          contact = await prisma.contact.create({
+            data: { name: pushName, phone, waName: pushName, source: 'OTRO', serviceLabel: 'OTRO', tags: [] },
+          }).catch(() => null)
+        } else if (contact && pushName && !contact.waName) {
+          await prisma.contact.update({ where: { id: contact.id }, data: { waName: pushName } }).catch(() => {})
         }
 
-        const contact = await prisma.contact.findFirst({ where: { phone: { contains: phone.slice(-8) } } })
         await prisma.whatsAppMessage.create({
           data: {
-            remoteJid: jid,
-            fromMe: msg.key.fromMe ?? false,
-            content,
+            remoteJid: jid, fromMe, content,
             messageId: msg.key.id!,
             timestamp: new Date(Number(msg.messageTimestamp) * 1000),
             contactId: contact?.id ?? null,
             mediaUrl: mediaData?.mediaUrl ?? null,
             mediaType: mediaData?.mediaType ?? null,
+            waName: pushName,
           },
         }).catch(() => {})
+
+        // Track unread count for incoming messages
+        if (!fromMe) {
+          await prisma.waConversation.upsert({
+            where: { remoteJid: jid },
+            create: { remoteJid: jid, unreadCount: 1, status: 'OPEN' },
+            update: { unreadCount: { increment: 1 }, status: 'OPEN' },
+          }).catch(() => {})
+        }
       }
     })
   } catch (err) {

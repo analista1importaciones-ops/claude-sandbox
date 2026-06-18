@@ -4,11 +4,14 @@ import { useEffect, useState, useRef } from 'react'
 import QRCode from 'qrcode'
 
 interface Message { id: string; remoteJid: string; fromMe: boolean; content: string; timestamp: string; contactId: string | null; mediaUrl: string | null; mediaType: string | null }
-interface Conversation { id: string; remoteJid: string; content: string; timestamp: string; fromMe: boolean; contact: { id: string; name: string } | null }
-interface Contact { id: string; name: string; company: string | null; phone: string | null; email: string | null }
+interface Conversation { id: string; remoteJid: string; content: string; timestamp: string; fromMe: boolean; unreadCount: number; convStatus: string; waName: string | null; contact: { id: string; name: string } | null }
+interface Contact { id: string; name: string; company: string | null; phone: string | null; email: string | null; waName: string | null; tags: string[]; serviceLabel: string }
 interface QuickReply { id: string; title: string; body: string }
 interface InternalNote { id: string; content: string; createdAt: string }
 interface ScheduledMsg { id: string; body: string; sendAt: string; sent: boolean }
+
+const TAGS = ['Pagó curso', 'Courier', 'Carga', 'Cliente antiguo', 'Prospecto', 'Seguro', 'Transporte']
+const SERVICE_LABELS = ['COURIER', 'NACIONALIZACION', 'TRANSPORTE_PESADO', 'SEGURO_CARGA', 'OTRO']
 
 export default function WhatsAppPage() {
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected')
@@ -40,6 +43,10 @@ export default function WhatsAppPage() {
   const [apptNotify, setApptNotify] = useState(true)
   const [showQRPicker, setShowQRPicker] = useState(false)
   const [attachFile, setAttachFile] = useState<File | null>(null)
+  // Contact edit state
+  const [editingContact, setEditingContact] = useState(false)
+  const [contactForm, setContactForm] = useState({ name: '', phone: '', email: '', company: '', waName: '', tags: [] as string[], serviceLabel: 'OTRO' })
+  const [savingContact, setSavingContact] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -75,6 +82,14 @@ export default function WhatsAppPage() {
   async function loadScheduled(jid: string) {
     const res = await fetch('/api/scheduled-messages?jid=' + encodeURIComponent(jid))
     if (res.ok) setScheduled(await res.json())
+  }
+  async function markRead(jid: string) {
+    await fetch('/api/whatsapp/conversation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remoteJid: jid, action: 'read' }) })
+    loadConversations()
+  }
+  async function markAttended(jid: string) {
+    await fetch('/api/whatsapp/conversation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remoteJid: jid, action: 'attended' }) })
+    loadConversations()
   }
   async function sendReply() {
     if ((!reply.trim() && !attachFile) || !selectedJid) return
@@ -114,6 +129,40 @@ export default function WhatsAppPage() {
       </a>
     )
   }
+
+  function openContactEdit(c?: Contact | null) {
+    const conv = conversations.find(x => x.remoteJid === selectedJid)
+    const phone = selectedJid?.replace('@s.whatsapp.net', '').replace('@g.us', '') ?? ''
+    if (c) {
+      setContactForm({ name: c.name, phone: c.phone ?? phone, email: c.email ?? '', company: c.company ?? '', waName: c.waName ?? conv?.waName ?? '', tags: c.tags ?? [], serviceLabel: c.serviceLabel ?? 'OTRO' })
+    } else {
+      setContactForm({ name: conv?.waName ?? conv?.contact?.name ?? '', phone, email: '', company: '', waName: conv?.waName ?? '', tags: [], serviceLabel: 'OTRO' })
+    }
+    setEditingContact(true)
+  }
+
+  async function saveContact() {
+    setSavingContact(true)
+    try {
+      if (linkedContact) {
+        const res = await fetch(`/api/contacts/${linkedContact.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contactForm) })
+        if (res.ok) { const updated = await res.json(); setLinkedContact(updated) }
+      } else {
+        const res = await fetch('/api/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contactForm) })
+        if (res.ok) { const created = await res.json(); setLinkedContact(created) }
+      }
+      setEditingContact(false)
+      loadContacts()
+      loadConversations()
+    } finally {
+      setSavingContact(false)
+    }
+  }
+
+  function toggleTag(tag: string) {
+    setContactForm(f => ({ ...f, tags: f.tags.includes(tag) ? f.tags.filter(t => t !== tag) : [...f.tags, tag] }))
+  }
+
   async function saveNote() {
     if (!newNote.trim() || !selectedJid) return
     await fetch('/api/whatsapp/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remoteJid: selectedJid, content: newNote, contactId: linkedContact?.id }) })
@@ -148,8 +197,15 @@ export default function WhatsAppPage() {
   useEffect(() => {
     if (selectedJid) {
       loadMessages(selectedJid); loadNotes(selectedJid); loadScheduled(selectedJid)
+      markRead(selectedJid)
       const conv = conversations.find(c => c.remoteJid === selectedJid)
-      setLinkedContact(conv?.contact ? { id: conv.contact.id, name: conv.contact.name, company: null, phone: null, email: null } : null)
+      if (conv?.contact) {
+        const full = contacts.find(c => c.id === conv.contact!.id)
+        setLinkedContact(full ?? { id: conv.contact.id, name: conv.contact.name, company: null, phone: null, email: null, waName: conv.waName, tags: [], serviceLabel: 'OTRO' })
+      } else {
+        setLinkedContact(null)
+      }
+      setEditingContact(false)
       setActiveTab('chat')
       const iv = setInterval(() => loadMessages(selectedJid), 5000)
       return () => clearInterval(iv)
@@ -161,6 +217,7 @@ export default function WhatsAppPage() {
 
   return (
     <div className="flex h-[calc(100vh-64px)]">
+      {/* Left: conversation list */}
       <div className="w-72 border-r border-gray-100 flex flex-col bg-white">
         <div className="px-4 py-4 border-b border-gray-100">
           <h1 className="text-lg font-bold text-gray-900">WhatsApp</h1>
@@ -180,25 +237,42 @@ export default function WhatsAppPage() {
               <button key={conv.remoteJid} onClick={() => setSelectedJid(conv.remoteJid)}
                 className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${selectedJid === conv.remoteJid ? 'bg-green-50 border-l-2 border-l-green-500' : ''}`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-800 truncate">{conv.contact?.name ?? conv.remoteJid.replace('@s.whatsapp.net', '')}</span>
-                  <span className="text-xs text-gray-400 flex-shrink-0 ml-1">{new Date(conv.timestamp).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
+                    {conv.contact?.name ?? conv.waName ?? conv.remoteJid.replace('@s.whatsapp.net', '')}
+                  </span>
+                  <div className="flex items-center gap-1 flex-shrink-0 ml-1">
+                    {conv.unreadCount > 0 && (
+                      <span className="bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">{conv.unreadCount > 9 ? '9+' : conv.unreadCount}</span>
+                    )}
+                    <span className="text-xs text-gray-400">{new Date(conv.timestamp).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-400 truncate mt-0.5">{conv.fromMe ? 'Tu: ' : ''}{conv.content}</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  {conv.convStatus === 'ATTENDED' && <span className="text-xs bg-gray-100 text-gray-500 rounded px-1">Atendido</span>}
+                  <p className="text-xs text-gray-400 truncate">{conv.fromMe ? 'Tu: ' : ''}{conv.content}</p>
+                </div>
               </button>
             ))}
         </div>
       </div>
 
+      {/* Center: chat */}
       <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
         {!selectedJid
           ? <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">{status === 'connected' ? 'Selecciona una conversacion' : 'Conecta WhatsApp para ver los chats'}</div>
           : <>
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="font-medium text-gray-800">{selectedConv?.contact?.name ?? selectedJid.replace('@s.whatsapp.net', '')}</p>
+                <p className="font-medium text-gray-800">{selectedConv?.contact?.name ?? selectedConv?.waName ?? selectedJid.replace('@s.whatsapp.net', '')}</p>
                 <p className="text-xs text-gray-400">{selectedJid.replace('@s.whatsapp.net', '')}</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {selectedConv && selectedConv.convStatus !== 'ATTENDED' && (
+                  <button onClick={() => markAttended(selectedJid)} className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200">Atendido</button>
+                )}
+                {selectedConv && selectedConv.convStatus === 'ATTENDED' && (
+                  <button onClick={async () => { await fetch('/api/whatsapp/conversation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remoteJid: selectedJid, action: 'reopen' }) }); loadConversations() }} className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Reabrir</button>
+                )}
                 {(['chat', 'notes', 'scheduled'] as const).map(tab => (
                   <button key={tab} onClick={() => setActiveTab(tab)}
                     className={`px-3 py-1 rounded-full text-xs font-medium ${activeTab === tab ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
@@ -229,28 +303,28 @@ export default function WhatsAppPage() {
                     </div>
                   )}
                   <div className="flex gap-2 items-center w-full">
-                  <input ref={fileInputRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={e => setAttachFile(e.target.files?.[0] ?? null)} />
-                  <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-blue-500" title="Adjuntar archivo">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                  </button>
-                  <div className="relative">
-                    <button onClick={() => setShowQRPicker(!showQRPicker)} className="p-2 text-gray-400 hover:text-yellow-500" title="Respuestas rapidas">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    <input ref={fileInputRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={e => setAttachFile(e.target.files?.[0] ?? null)} />
+                    <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-blue-500" title="Adjuntar archivo">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                     </button>
-                    {showQRPicker && quickReplies.length > 0 && (
-                      <div className="absolute bottom-10 left-0 bg-white border border-gray-200 rounded-lg shadow-lg w-64 max-h-48 overflow-y-auto z-10">
-                        {quickReplies.map(qr => (
-                          <button key={qr.id} onClick={() => { setReply(qr.body); setShowQRPicker(false) }}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0">
-                            <p className="text-xs font-medium text-gray-700">{qr.title}</p>
-                            <p className="text-xs text-gray-400 truncate">{qr.body}</p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <input type="text" value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendReply()} placeholder="Escribe un mensaje..." className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-                  <button onClick={sendReply} disabled={sending || (!reply.trim() && !attachFile)} className="px-4 py-2 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 disabled:opacity-50">Enviar</button>
+                    <div className="relative">
+                      <button onClick={() => setShowQRPicker(!showQRPicker)} className="p-2 text-gray-400 hover:text-yellow-500" title="Respuestas rapidas">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                      </button>
+                      {showQRPicker && quickReplies.length > 0 && (
+                        <div className="absolute bottom-10 left-0 bg-white border border-gray-200 rounded-lg shadow-lg w-64 max-h-48 overflow-y-auto z-10">
+                          {quickReplies.map(qr => (
+                            <button key={qr.id} onClick={() => { setReply(qr.body); setShowQRPicker(false) }}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                              <p className="text-xs font-medium text-gray-700">{qr.title}</p>
+                              <p className="text-xs text-gray-400 truncate">{qr.body}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <input type="text" value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendReply()} placeholder="Escribe un mensaje..." className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+                    <button onClick={sendReply} disabled={sending || (!reply.trim() && !attachFile)} className="px-4 py-2 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 disabled:opacity-50">Enviar</button>
                   </div>
                 </div>
               </>
@@ -293,26 +367,72 @@ export default function WhatsAppPage() {
           </>}
       </div>
 
+      {/* Right: contact panel */}
       {selectedJid && (
         <div className="w-72 border-l border-gray-100 flex flex-col bg-white overflow-y-auto">
           <div className="px-4 py-4 border-b border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Contacto CRM</p>
-            {linkedContact
-              ? <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                  <p className="text-sm font-medium text-gray-800">{linkedContact.name}</p>
-                  {linkedContact.company && <p className="text-xs text-gray-400">{linkedContact.company}</p>}
-                  <button onClick={() => setLinkedContact(null)} className="text-xs text-red-400 hover:text-red-600 mt-1">Desvincular</button>
-                </div>
-              : <div>
-                  <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="Buscar contacto..." className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400 mb-2" />
-                  <div className="max-h-32 overflow-y-auto space-y-1">
-                    {filteredContacts.slice(0, 10).map(c => (
-                      <button key={c.id} onClick={() => { const found = contacts.find(x => x.id === c.id); setLinkedContact(found ?? null); setContactSearch('') }} className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">{c.name}{c.company ? ' - ' + c.company : ''}</button>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contacto CRM</p>
+              {!editingContact && (
+                <button onClick={() => openContactEdit(linkedContact)} className="text-xs text-blue-500 hover:text-blue-700">
+                  {linkedContact ? 'Editar' : '+ Nuevo'}
+                </button>
+              )}
+            </div>
+
+            {editingContact ? (
+              <div className="space-y-2">
+                <input type="text" value={contactForm.name} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))} placeholder="Nombre *" className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400" />
+                <input type="text" value={contactForm.phone} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))} placeholder="Teléfono" className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400" />
+                <input type="email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} placeholder="Email" className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400" />
+                <input type="text" value={contactForm.company} onChange={e => setContactForm(f => ({ ...f, company: e.target.value }))} placeholder="Empresa" className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400" />
+                <select value={contactForm.serviceLabel} onChange={e => setContactForm(f => ({ ...f, serviceLabel: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400">
+                  {SERVICE_LABELS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                </select>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Etiquetas</p>
+                  <div className="flex flex-wrap gap-1">
+                    {TAGS.map(tag => (
+                      <button key={tag} onClick={() => toggleTag(tag)}
+                        className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${contactForm.tags.includes(tag) ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'}`}>
+                        {tag}
+                      </button>
                     ))}
                   </div>
                 </div>
-            }
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setEditingContact(false)} className="flex-1 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancelar</button>
+                  <button onClick={saveContact} disabled={savingContact || !contactForm.name.trim()} className="flex-1 px-3 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50">
+                    {savingContact ? 'Guardando...' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+            ) : linkedContact ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                <p className="text-sm font-medium text-gray-800">{linkedContact.name}</p>
+                {linkedContact.company && <p className="text-xs text-gray-500">{linkedContact.company}</p>}
+                {linkedContact.phone && <p className="text-xs text-gray-400">{linkedContact.phone}</p>}
+                {linkedContact.waName && <p className="text-xs text-gray-400">WA: {linkedContact.waName}</p>}
+                {linkedContact.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {linkedContact.tags.map(t => <span key={t} className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">{t}</span>)}
+                  </div>
+                )}
+                <p className="text-xs text-blue-500 mt-1">{linkedContact.serviceLabel?.replace('_', ' ')}</p>
+                <button onClick={() => setLinkedContact(null)} className="text-xs text-red-400 hover:text-red-600 mt-1">Desvincular</button>
+              </div>
+            ) : (
+              <div>
+                <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="Buscar contacto..." className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400 mb-2" />
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {filteredContacts.slice(0, 10).map(c => (
+                    <button key={c.id} onClick={() => { setLinkedContact(c); setContactSearch('') }} className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">{c.name}{c.company ? ' - ' + c.company : ''}</button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+
           <div className="px-4 py-4 border-b border-gray-100">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Acciones rapidas</p>
             <div className="space-y-2">
@@ -321,6 +441,7 @@ export default function WhatsAppPage() {
               <button onClick={() => setActiveTab('notes')} className="w-full px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-700 hover:bg-yellow-100 text-left">Nota interna</button>
             </div>
           </div>
+
           <div className="px-4 py-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Respuestas rapidas</p>
