@@ -318,8 +318,8 @@ export default function WhatsAppPage() {
 
   useEffect(() => {
     pollStatus(); loadConversations(); loadContacts(); loadQuickReplies()
-    const si = setInterval(pollStatus, 5000)
-    const sc = setInterval(loadConversations, 5000)
+    const si = setInterval(pollStatus, 15000)
+    const sc = setInterval(loadConversations, 10000)
     return () => { clearInterval(si); clearInterval(sc) }
   }, [])
 
@@ -336,7 +336,7 @@ export default function WhatsAppPage() {
       }
       setEditingContact(false)
       setActiveTab('chat')
-      const iv = setInterval(() => loadMessages(selectedJid), 5000)
+      const iv = setInterval(() => loadMessages(selectedJid), 8000)
       return () => clearInterval(iv)
     }
   }, [selectedJid])
