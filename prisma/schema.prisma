@@ -359,3 +359,54 @@ enum WorkflowTrigger {
   NO_ACTIVITY_DAYS
   CONTACT_CREATED
 }
+
+// ─── Sprint 8 ────────────────────────────────────────────────────
+
+model QuickReply {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model ScheduledMessage {
+  id          String   @id @default(cuid())
+  remoteJid   String
+  body        String
+  sendAt      DateTime
+  sent        Boolean  @default(false)
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Appointment {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  startAt         DateTime
+  endAt           DateTime
+  contactId       String?
+  contact         Contact? @relation(fields: [contactId], references: [id])
+  googleEventId   String?
+  remoteJid       String?
+  notified        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model GoogleToken {
+  id           String   @id @default(cuid())
+  accessToken  String
+  refreshToken String
+  expiryDate   BigInt
+  updatedAt    DateTime @updatedAt
+}
+
+model InternalNote {
+  id        String   @id @default(cuid())
+  remoteJid String
+  content   String
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  createdAt DateTime @default(now())
+}
