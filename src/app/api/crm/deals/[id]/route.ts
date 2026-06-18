@@ -21,8 +21,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       if (phone && msg) {
         const text = msg.replace('{{nombre}}', deal.contact?.name ?? '').replace('{{empresa}}', deal.contact?.company ?? '')
         try {
-          await sendWAMessage(phone, text)
-          await prisma.whatsAppMessage.create({ data: { jid: `${phone}@s.whatsapp.net`, fromMe: true, body: text, contactId: deal.contact?.id ?? null } })
+          const jid = await sendWAMessage(phone, text)
+          await prisma.whatsAppMessage.create({
+            data: {
+              remoteJid: jid,
+              fromMe: true,
+              content: text,
+              messageId: `wf_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+              timestamp: new Date(),
+              contactId: deal.contact?.id ?? null,
+            },
+          })
         } catch (e) { console.error('[Workflow] send failed', e) }
       }
     }

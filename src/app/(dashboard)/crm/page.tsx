@@ -46,6 +46,8 @@ export default function CrmContactsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [serviceFilter, setServiceFilter] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [importMsg, setImportMsg] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -59,6 +61,18 @@ export default function CrmContactsPage() {
   }
 
   useEffect(() => { load() }, [search, serviceFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true); setImportMsg(null)
+    const text = await file.text()
+    const res = await fetch('/api/crm/contacts/import', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: text })
+    const data = await res.json()
+    setImporting(false); e.target.value = ''
+    if (res.ok) { setImportMsg(`✓ ${data.created} contactos importados`); load() }
+    else setImportMsg(`Error: ${data.error}`)
+  } // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="p-6 space-y-6">
@@ -74,6 +88,10 @@ export default function CrmContactsPage() {
           >
             Ver Pipeline
           </Link>
+          <label className={`px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+            {importing ? 'Importando...' : '↑ Importar CSV'}
+            <input type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
+          </label>
           <Link
             href="/crm/contacts/new"
             className="px-4 py-2 bg-gtl-orange text-white rounded-lg text-sm font-medium hover:bg-orange-600"

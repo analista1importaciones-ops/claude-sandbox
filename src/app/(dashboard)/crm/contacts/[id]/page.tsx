@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -63,6 +63,11 @@ export default function ContactDetailPage() {
   const [showDealForm, setShowDealForm] = useState(false)
   const [dealStage, setDealStage] = useState('PAUTA')
   const [dealValue, setDealValue] = useState('')
+  const [tab, setTab] = useState<'actividad' | 'whatsapp'>('actividad')
+  const [waMessages, setWaMessages] = useState<{id:string;remoteJid:string;fromMe:boolean;content:string;timestamp:string}[]>([])
+  const [waReply, setWaReply] = useState('')
+  const [waSending, setWaSending] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
   async function load() {
     const res = await fetch(`/api/crm/contacts/${id}`)
@@ -96,6 +101,27 @@ export default function ContactDetailPage() {
     setDealValue('')
     setDealStage('PAUTA')
     load()
+  }
+
+  async function loadWA(phone: string) {
+    const jid = `${phone.replace(/\D/g, '')}@s.whatsapp.net`
+    const res = await fetch(`/api/whatsapp/messages?jid=${encodeURIComponent(jid)}`)
+    if (res.ok) { setWaMessages(await res.json()); setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100) }
+  }
+
+  useEffect(() => {
+    if (tab === 'whatsapp' && contact?.phone) {
+      loadWA(contact.phone)
+      const iv = setInterval(() => loadWA(contact.phone!), 5000)
+      return () => clearInterval(iv)
+    }
+  }, [tab, contact?.phone]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function sendWA() {
+    if (!waReply.trim() || !contact?.phone) return
+    setWaSending(true)
+    await fetch('/api/whatsapp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: contact.phone, body: waReply, contactId: id }) })
+    setWaReply(''); setWaSending(false); loadWA(contact.phone)
   }
 
   async function moveDeal(dealId: string, stage: string) {
@@ -243,9 +269,13 @@ export default function ContactDetailPage() {
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h2 className="font-semibold text-gray-800">Actividad</h2>
+      <div>
+        <div className="flex gap-1 border-b border-gray-200 mb-4">
+          <button onClick={() => setTab('actividad')} className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'actividad' ? 'border-gtl-orange text-orange-500' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Actividad</button>
+          <button onClick={() => setTab('whatsapp')} className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'whatsapp' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>💬 WhatsApp</button>
+        </div>
 
+        {tab === 'actividad' && <div className="space-y-4">
         <form onSubmit={submitActivity} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
           <div className="flex gap-3">
             <select
@@ -290,6 +320,32 @@ export default function ContactDetailPage() {
             <p className="text-sm text-gray-400">Sin actividades registradas.</p>
           )}
         </div>
+        </div>}
+
+        {tab === 'whatsapp' && (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            {!contact.phone
+              ? <p className="p-6 text-sm text-gray-400">Este contacto no tiene número de teléfono.</p>
+              : <>
+                <div className="h-80 overflow-y-auto p-4 space-y-2 bg-gray-50">
+                  {waMessages.length === 0 && <p className="text-xs text-gray-400 text-center mt-8">No hay mensajes de WhatsApp con este contacto.</p>}
+                  {waMessages.map(m => (
+                    <div key={m.id} className={`flex ${m.fromMe ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs px-3 py-2 rounded-xl text-sm ${m.fromMe ? 'bg-green-500 text-white' : 'bg-white text-gray-800 border border-gray-100'}`}>
+                        {m.content}
+                        <div className={`text-xs mt-1 ${m.fromMe ? 'text-green-100' : 'text-gray-400'}`}>{new Date(m.timestamp).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={bottomRef} />
+                </div>
+                <div className="border-t border-gray-100 px-4 py-3 flex gap-3">
+                  <input type="text" value={waReply} onChange={e => setWaReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendWA()} placeholder={`Enviar mensaje a ${contact.name}...`} className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+                  <button onClick={sendWA} disabled={waSending || !waReply.trim()} className="px-4 py-2 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 disabled:opacity-50">Enviar</button>
+                </div>
+              </>}
+          </div>
+        )}
       </div>
     </div>
   )
