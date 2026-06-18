@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import QRCode from 'qrcode'
 
-interface Message { id: string; remoteJid: string; fromMe: boolean; content: string; timestamp: string; contactId: string | null }
+interface Message { id: string; remoteJid: string; fromMe: boolean; content: string; timestamp: string; contactId: string | null; mediaUrl: string | null; mediaType: string | null }
 interface Conversation { id: string; remoteJid: string; content: string; timestamp: string; fromMe: boolean; contact: { id: string; name: string } | null }
 interface Contact { id: string; name: string; company: string | null; phone: string | null; email: string | null }
 interface QuickReply { id: string; title: string; body: string }
@@ -39,6 +39,8 @@ export default function WhatsAppPage() {
   const [apptEnd, setApptEnd] = useState('')
   const [apptNotify, setApptNotify] = useState(true)
   const [showQRPicker, setShowQRPicker] = useState(false)
+  const [attachFile, setAttachFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   async function pollStatus() {
@@ -75,11 +77,42 @@ export default function WhatsAppPage() {
     if (res.ok) setScheduled(await res.json())
   }
   async function sendReply() {
-    if (!reply.trim() || !selectedJid) return
+    if ((!reply.trim() && !attachFile) || !selectedJid) return
     setSending(true)
-    await fetch('/api/whatsapp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: selectedJid, body: reply }) })
+    if (attachFile) {
+      const fd = new FormData()
+      fd.append('to', selectedJid)
+      fd.append('file', attachFile)
+      if (reply.trim()) fd.append('caption', reply)
+      await fetch('/api/whatsapp/send-media', { method: 'POST', body: fd })
+      setAttachFile(null)
+    } else {
+      await fetch('/api/whatsapp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: selectedJid, body: reply }) })
+    }
     setReply(''); setSending(false)
     loadMessages(selectedJid); loadConversations()
+  }
+
+  function renderMedia(m: Message) {
+    if (!m.mediaUrl) return <p className="whitespace-pre-wrap break-words">{m.content}</p>
+    if (m.mediaType === 'image') return (
+      <a href={m.mediaUrl} target="_blank" rel="noreferrer">
+        <img src={m.mediaUrl} alt="imagen" className="max-w-[200px] rounded-lg mb-1" />
+        {m.content && m.content !== '[image]' && <p className="text-xs mt-1">{m.content}</p>}
+      </a>
+    )
+    if (m.mediaType === 'audio') return (
+      <audio controls src={m.mediaUrl} className="max-w-[220px]" />
+    )
+    if (m.mediaType === 'video') return (
+      <video controls src={m.mediaUrl} className="max-w-[200px] rounded-lg" />
+    )
+    return (
+      <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 underline text-xs">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+        {m.content || 'Documento'}
+      </a>
+    )
   }
   async function saveNote() {
     if (!newNote.trim() || !selectedJid) return
@@ -181,14 +214,25 @@ export default function WhatsAppPage() {
                   {messages.map(m => (
                     <div key={m.id} className={`flex ${m.fromMe ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-xs px-3 py-2 rounded-xl text-sm ${m.fromMe ? 'bg-green-500 text-white' : 'bg-white text-gray-800 border border-gray-100'}`}>
-                        {m.content}
+                        {renderMedia(m)}
                         <div className={`text-xs mt-1 ${m.fromMe ? 'text-green-100' : 'text-gray-400'}`}>{new Date(m.timestamp).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
                     </div>
                   ))}
                   <div ref={bottomRef} />
                 </div>
-                <div className="border-t border-gray-200 bg-white px-4 py-3 flex gap-2 items-center">
+                <div className="border-t border-gray-200 bg-white px-4 py-3 flex gap-2 items-center flex-col">
+                  {attachFile && (
+                    <div className="w-full flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs text-blue-700">
+                      <span className="flex-1 truncate">{attachFile.name}</span>
+                      <button onClick={() => setAttachFile(null)} className="text-red-400 hover:text-red-600">x</button>
+                    </div>
+                  )}
+                  <div className="flex gap-2 items-center w-full">
+                  <input ref={fileInputRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={e => setAttachFile(e.target.files?.[0] ?? null)} />
+                  <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-blue-500" title="Adjuntar archivo">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                  </button>
                   <div className="relative">
                     <button onClick={() => setShowQRPicker(!showQRPicker)} className="p-2 text-gray-400 hover:text-yellow-500" title="Respuestas rapidas">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -206,7 +250,8 @@ export default function WhatsAppPage() {
                     )}
                   </div>
                   <input type="text" value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendReply()} placeholder="Escribe un mensaje..." className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-                  <button onClick={sendReply} disabled={sending || !reply.trim()} className="px-4 py-2 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 disabled:opacity-50">Enviar</button>
+                  <button onClick={sendReply} disabled={sending || (!reply.trim() && !attachFile)} className="px-4 py-2 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 disabled:opacity-50">Enviar</button>
+                  </div>
                 </div>
               </>
             )}

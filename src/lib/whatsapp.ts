@@ -2,6 +2,7 @@ import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
+  downloadMediaMessage,
 } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
 import path from 'path'
@@ -9,7 +10,9 @@ import fs from 'fs'
 import { prisma } from './prisma'
 
 const AUTH_DIR = path.join(process.cwd(), '.wa-auth')
+const MEDIA_DIR = path.join(process.cwd(), 'public', 'wa-media')
 if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true })
+if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true })
 
 declare global {
   var __waSock: ReturnType<typeof makeWASocket> | null
@@ -22,6 +25,35 @@ if (global.__waQr === undefined) global.__waQr = null
 if (global.__waSock === undefined) global.__waSock = null
 
 export function getWAStatus() { return { status: global.__waStatus, qrCode: global.__waQr } }
+
+function getMediaExt(type: string) {
+  if (type === 'imageMessage') return 'jpg'
+  if (type === 'audioMessage') return 'ogg'
+  if (type === 'videoMessage') return 'mp4'
+  if (type === 'documentMessage') return 'pdf'
+  return 'bin'
+}
+
+function getMediaType(type: string) {
+  if (type === 'imageMessage') return 'image'
+  if (type === 'audioMessage') return 'audio'
+  if (type === 'videoMessage') return 'video'
+  if (type === 'documentMessage') return 'document'
+  return 'file'
+}
+
+async function saveMedia(msg: any, msgType: string, messageId: string): Promise<{ mediaUrl: string; mediaType: string } | null> {
+  try {
+    const buffer = await downloadMediaMessage(msg, 'buffer', {}) as Buffer
+    const ext = getMediaExt(msgType)
+    const filename = `${messageId}.${ext}`
+    fs.writeFileSync(path.join(MEDIA_DIR, filename), buffer)
+    return { mediaUrl: `/wa-media/${filename}`, mediaType: getMediaType(msgType) }
+  } catch (e) {
+    console.error('[WhatsApp] media download error:', e)
+    return null
+  }
+}
 
 export async function startWhatsApp() {
   if (global.__waStatus === 'connecting' || global.__waStatus === 'connected') return
@@ -38,6 +70,9 @@ export async function startWhatsApp() {
       version: versionResult.version,
       auth: state,
       printQRInTerminal: true,
+      browser: ['GTL Rate', 'Chrome', '120.0.0'],
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 60000,
     })
     global.__waSock = sock
 
@@ -56,17 +91,35 @@ export async function startWhatsApp() {
 
     sock.ev.on('messages.upsert', async ({ messages }) => {
       for (const msg of messages) {
-        if (!msg.message || msg.key.fromMe) continue
+        if (!msg.message) continue
         const jid = msg.key.remoteJid!
         const phone = jid.replace('@s.whatsapp.net', '').replace('@g.us', '')
-        const content = msg.message.conversation || msg.message.extendedTextMessage?.text || '[media]'
+        const msgType = Object.keys(msg.message)[0]
+        const isMedia = ['imageMessage', 'audioMessage', 'videoMessage', 'documentMessage'].includes(msgType)
+
+        let content = msg.message.conversation
+          || msg.message.extendedTextMessage?.text
+          || msg.message.imageMessage?.caption
+          || msg.message.videoMessage?.caption
+          || msg.message.documentMessage?.fileName
+          || `[${msgType.replace('Message', '')}]`
+
+        let mediaData: { mediaUrl: string; mediaType: string } | null = null
+        if (isMedia) {
+          mediaData = await saveMedia(msg, msgType, msg.key.id!)
+        }
+
         const contact = await prisma.contact.findFirst({ where: { phone: { contains: phone.slice(-8) } } })
         await prisma.whatsAppMessage.create({
           data: {
-            remoteJid: jid, fromMe: false, content,
+            remoteJid: jid,
+            fromMe: msg.key.fromMe ?? false,
+            content,
             messageId: msg.key.id!,
             timestamp: new Date(Number(msg.messageTimestamp) * 1000),
             contactId: contact?.id ?? null,
+            mediaUrl: mediaData?.mediaUrl ?? null,
+            mediaType: mediaData?.mediaType ?? null,
           },
         }).catch(() => {})
       }
