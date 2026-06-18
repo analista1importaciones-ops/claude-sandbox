@@ -287,7 +287,10 @@ model Contact {
   updatedAt      DateTime     @updatedAt
   deals          Deal[]
   activities     Activity[]
-  whatsappMessages WhatsAppMessage[]
+  whatsappMessages  WhatsAppMessage[]
+  scheduledMessages ScheduledMessage[]
+  appointments      Appointment[]
+  internalNotes     InternalNote[]
 }
 
 model Deal {
