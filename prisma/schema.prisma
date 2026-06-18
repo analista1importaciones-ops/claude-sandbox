@@ -287,6 +287,7 @@ model Contact {
   updatedAt      DateTime     @updatedAt
   deals          Deal[]
   activities     Activity[]
+  whatsappMessages WhatsAppMessage[]
 }
 
 model Deal {
@@ -316,4 +317,45 @@ model Activity {
   createdById String
   createdBy   User         @relation(fields: [createdById], references: [id])
   createdAt   DateTime     @default(now())
+}
+
+// ─── Sprint 5 WhatsApp ───────────────────────────────────────────
+
+model WhatsAppMessage {
+  id          String   @id @default(cuid())
+  remoteJid   String
+  fromMe      Boolean  @default(false)
+  content     String
+  messageId   String   @unique
+  timestamp   DateTime
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model WhatsAppTemplate {
+
+  id        String   @id @default(cuid())
+  name      String
+  body      String
+  createdAt DateTime @default(now())
+  workflows Workflow[]
+}
+
+model Workflow {
+  id        String         @id @default(cuid())
+  name      String
+  trigger   WorkflowTrigger
+  stage     PipelineStage?
+  delayDays Int            @default(0)
+  templateId String?
+  template  WhatsAppTemplate? @relation(fields: [templateId], references: [id])
+  active    Boolean        @default(true)
+  createdAt DateTime       @default(now())
+}
+
+enum WorkflowTrigger {
+  DEAL_STAGE_CHANGED
+  NO_ACTIVITY_DAYS
+  CONTACT_CREATED
 }

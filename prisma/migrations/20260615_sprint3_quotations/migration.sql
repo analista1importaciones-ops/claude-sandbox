@@ -6,6 +6,9 @@ DROP TABLE IF EXISTS "Quotation";
 -- Drop old enum
 DROP TYPE IF EXISTS "QuoteStatus";
 
+-- Create ShipMode enum
+CREATE TYPE "ShipMode" AS ENUM ('AIR', 'SEA_FCL', 'SEA_LCL', 'LAND');
+
 -- Create new enum
 CREATE TYPE "QuoteStatus" AS ENUM ('DRAFT', 'SENT', 'ARCHIVED');
 
