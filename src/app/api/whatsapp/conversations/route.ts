@@ -17,6 +17,13 @@ export async function GET() {
 
   const BLOCKED = ['status@broadcast', 'broadcast']
 
+  // Build phone->contact map for fallback lookup
+  const allContacts = await prisma.contact.findMany({ select: { id: true, name: true, phone: true } })
+  const phoneMap = new Map<string, { id: string; name: string }>()
+  for (const c of allContacts) {
+    if (c.phone) phoneMap.set(c.phone.slice(-8), { id: c.id, name: c.name })
+  }
+
   const seen = new Set()
   const conversations = []
   for (const m of all) {
@@ -24,7 +31,13 @@ export async function GET() {
     if (!seen.has(m.remoteJid)) {
       seen.add(m.remoteJid)
       const conv = convMap.get(m.remoteJid)
-      conversations.push({ ...m, unreadCount: conv?.unreadCount ?? 0, convStatus: conv?.status ?? 'OPEN' })
+      let contact = m.contact
+      if (!contact) {
+        const phone = m.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '')
+        const found = phoneMap.get(phone.slice(-8))
+        if (found) contact = found
+      }
+      conversations.push({ ...m, contact, unreadCount: conv?.unreadCount ?? 0, convStatus: conv?.status ?? 'OPEN' })
     }
   }
 

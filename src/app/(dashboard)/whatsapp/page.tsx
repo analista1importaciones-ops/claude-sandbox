@@ -43,6 +43,7 @@ export default function WhatsAppPage() {
   const [apptNotify, setApptNotify] = useState(true)
   const [showQRPicker, setShowQRPicker] = useState(false)
   const [attachFile, setAttachFile] = useState<File | null>(null)
+  const [convSearch, setConvSearch] = useState('')
   // Contact edit state
   const [editingContact, setEditingContact] = useState(false)
   const [contactForm, setContactForm] = useState({ name: '', phone: '', email: '', company: '', waName: '', tags: [] as string[], serviceLabel: 'OTRO' })
@@ -213,6 +214,12 @@ export default function WhatsAppPage() {
   }, [selectedJid])
 
   const selectedConv = conversations.find(c => c.remoteJid === selectedJid)
+  const filteredConversations = conversations.filter(c => {
+    if (!convSearch.trim()) return true
+    const name = (c.contact?.name ?? c.waName ?? c.remoteJid).toLowerCase()
+    const phone = c.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '')
+    return name.includes(convSearch.toLowerCase()) || phone.includes(convSearch)
+  })
   const filteredContacts = contacts.filter(c => c.name.toLowerCase().includes(contactSearch.toLowerCase()) || (c.phone ?? '').includes(contactSearch))
 
   return (
@@ -230,10 +237,13 @@ export default function WhatsAppPage() {
           )}
         </div>
         {qrUrl && <div className="p-4 flex flex-col items-center border-b border-gray-100"><p className="text-xs text-gray-500 mb-2">Escanea con WhatsApp</p><img src={qrUrl} alt="QR" className="w-48 h-48" /></div>}
+        <div className="px-3 py-2 border-b border-gray-100">
+          <input type="text" value={convSearch} onChange={e => setConvSearch(e.target.value)} placeholder="Buscar chat..." className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400" />
+        </div>
         <div className="flex-1 overflow-y-auto">
           {conversations.length === 0
             ? <p className="text-xs text-gray-400 text-center mt-8 px-4">{status === 'connected' ? 'Los chats apareceran aqui cuando recibas mensajes' : 'Conecta WhatsApp para ver los chats'}</p>
-            : conversations.map(conv => (
+            : filteredConversations.map(conv => (
               <button key={conv.remoteJid} onClick={() => setSelectedJid(conv.remoteJid)}
                 className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${selectedJid === conv.remoteJid ? 'bg-green-50 border-l-2 border-l-green-500' : ''}`}>
                 <div className="flex items-center justify-between">
