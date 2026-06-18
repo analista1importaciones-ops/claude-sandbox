@@ -17,7 +17,6 @@ export async function GET() {
 
   const BLOCKED = ['status@broadcast', 'broadcast']
 
-  // Build phone->contact map for fallback lookup
   const allContacts = await prisma.contact.findMany({ select: { id: true, name: true, phone: true } })
   const phoneMap = new Map<string, { id: string; name: string }>()
   for (const c of allContacts) {
