@@ -128,10 +128,20 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const mobileItems = navItems.filter((item) =>
+    ['/dashboard', '/crm/pipeline', '/whatsapp', '/workflows', '/appointments'].includes(item.href)
+  )
+
+  function isItemActive(href: string) {
+    return href === '/crm'
+      ? pathname === '/crm' || pathname.startsWith('/crm/contacts')
+      : pathname === href || pathname.startsWith(href + '/')
+  }
 
   return (
+    <>
     <aside
-      className={`bg-gtl-navy flex flex-col transition-all duration-300 ${
+      className={`hidden bg-gtl-navy md:flex flex-col transition-all duration-300 ${
         collapsed ? 'w-16' : 'w-64'
       } min-h-screen`}
     >
@@ -165,9 +175,7 @@ export default function Sidebar() {
 
       <nav className="flex-1 py-4 space-y-1 px-2">
         {navItems.map((item) => {
-          const isActive = item.href === '/crm'
-            ? pathname === '/crm' || pathname.startsWith('/crm/contacts')
-            : pathname === item.href || pathname.startsWith(item.href + '/')
+          const isActive = isItemActive(item.href)
           return (
             <Link
               key={item.href}
@@ -193,5 +201,23 @@ export default function Sidebar() {
         </div>
       )}
     </aside>
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-gray-200 bg-white shadow-lg md:hidden">
+      {mobileItems.map((item) => {
+        const isActive = isItemActive(item.href)
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] font-medium ${
+              isActive ? 'text-gtl-orange' : 'text-gray-500'
+            }`}
+          >
+            <span className="flex h-5 w-5 items-center justify-center">{item.icon}</span>
+            <span className="truncate">{item.label === 'Pipeline' ? 'Embudo' : item.label}</span>
+          </Link>
+        )
+      })}
+    </nav>
+    </>
   )
 }

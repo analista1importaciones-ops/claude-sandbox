@@ -4,6 +4,19 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+const SERVICE_LABELS = [
+  { value: 'CURSOS', label: 'Cursos' },
+  { value: 'CARGA', label: 'Carga' },
+  { value: 'ASESORIAS', label: 'Asesorías' },
+  { value: 'INSPECCIONES', label: 'Inspecciones' },
+  { value: 'BUSQUEDA_PROVEEDORES', label: 'Búsqueda de proveedores' },
+  { value: 'COURIER', label: 'Courier' },
+  { value: 'NACIONALIZACION', label: 'Nacionalización' },
+  { value: 'TRANSPORTE_PESADO', label: 'Transporte pesado' },
+  { value: 'SEGURO_CARGA', label: 'Seguro de carga' },
+  { value: 'OTRO', label: 'Otro' },
+]
+
 export default function NewContactPage() {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
@@ -14,10 +27,20 @@ export default function NewContactPage() {
     phone: '',
     source: 'OTRO',
     serviceLabel: 'OTRO',
+    tags: [] as string[],
   })
 
   function set(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }))
+  }
+
+  function setService(value: string) {
+    const service = SERVICE_LABELS.find((item) => item.value === value)
+    setForm((f) => ({
+      ...f,
+      serviceLabel: value,
+      tags: service && service.value !== 'OTRO' ? [service.label] : [],
+    }))
   }
 
   async function submit(e: React.FormEvent) {
@@ -109,17 +132,15 @@ export default function NewContactPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Servicio de interés</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Servicio / etiqueta principal</label>
             <select
               value={form.serviceLabel}
-              onChange={(e) => set('serviceLabel', e.target.value)}
+              onChange={(e) => setService(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gtl-orange"
             >
-              <option value="COURIER">Courier</option>
-              <option value="NACIONALIZACION">Nacionalización</option>
-              <option value="TRANSPORTE_PESADO">Transporte Pesado</option>
-              <option value="SEGURO_CARGA">Seguro de Carga</option>
-              <option value="OTRO">Otro</option>
+              {SERVICE_LABELS.map((service) => (
+                <option key={service.value} value={service.value}>{service.label}</option>
+              ))}
             </select>
           </div>
         </div>

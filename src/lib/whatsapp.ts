@@ -9,22 +9,49 @@ import path from 'path'
 import fs from 'fs'
 import { prisma } from './prisma'
 
-const AUTH_DIR = path.join(process.cwd(), '.wa-auth')
+const AUTH_DIR = process.env.WA_AUTH_DIR || path.join(process.cwd(), '.wa-auth')
 const MEDIA_DIR = path.join(process.cwd(), 'public', 'wa-media')
-if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true })
-if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true })
+
+function ensureDir(dir: string) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+}
 
 declare global {
   var __waSock: ReturnType<typeof makeWASocket> | null
   var __waQr: string | null
   var __waStatus: 'disconnected' | 'connecting' | 'connected'
+  var __waStartPromise: Promise<void> | null
+  var __waSupervisor: ReturnType<typeof setInterval> | null
+  var __waLoggedOut: boolean
+  var __waLastOpenAt: number
+  var __waLastReconnectAt: number
 }
 
 if (!global.__waStatus) global.__waStatus = 'disconnected'
 if (global.__waQr === undefined) global.__waQr = null
 if (global.__waSock === undefined) global.__waSock = null
+if (global.__waStartPromise === undefined) global.__waStartPromise = null
+if (global.__waSupervisor === undefined) global.__waSupervisor = null
+if (global.__waLoggedOut === undefined) global.__waLoggedOut = false
+if (global.__waLastOpenAt === undefined) global.__waLastOpenAt = 0
+if (global.__waLastReconnectAt === undefined) global.__waLastReconnectAt = 0
 
 export function getWAStatus() { return { status: global.__waStatus, qrCode: global.__waQr } }
+
+function hasSavedWhatsAppSession() {
+  return fs.existsSync(path.join(AUTH_DIR, 'creds.json'))
+}
+
+function wait(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function waitForWAConnected(timeoutMs = 15000) {
+  const startedAt = Date.now()
+  while (global.__waStatus === 'connecting' && Date.now() - startedAt < timeoutMs) {
+    await wait(500)
+  }
+}
 
 function getMediaExt(type: string) {
   if (type === 'imageMessage') return 'jpg'
@@ -59,6 +86,7 @@ function phoneFromJid(jid: string | null | undefined) {
 
 async function saveMedia(msg: any, msgType: string, messageId: string): Promise<{ mediaUrl: string; mediaType: string } | null> {
   try {
+    ensureDir(MEDIA_DIR)
     const buffer = await downloadMediaMessage(msg, 'buffer', {}) as Buffer
     const ext = getMediaExt(msgType)
     const filename = `${messageId}.${ext}`
@@ -70,12 +98,25 @@ async function saveMedia(msg: any, msgType: string, messageId: string): Promise<
   }
 }
 
-export async function startWhatsApp() {
+export async function startWhatsApp(options: { manual?: boolean } = {}) {
+  if (options.manual) global.__waLoggedOut = false
+  if (global.__waLoggedOut && !options.manual) return
   if (global.__waStatus === 'connecting' || global.__waStatus === 'connected') return
+  if (global.__waStartPromise) return global.__waStartPromise
+
+  global.__waStartPromise = startWhatsAppInternal().finally(() => {
+    global.__waStartPromise = null
+  })
+  return global.__waStartPromise
+}
+
+async function startWhatsAppInternal() {
   global.__waStatus = 'connecting'
   global.__waQr = null
 
   try {
+    ensureDir(AUTH_DIR)
+    ensureDir(MEDIA_DIR)
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR)
     const versionResult = await fetchLatestBaileysVersion().catch(() => ({
       version: [2, 3000, 1015901307] as [number, number, number],
@@ -107,12 +148,21 @@ export async function startWhatsApp() {
 
     sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
       if (qr) { global.__waQr = qr; global.__waStatus = 'connecting' }
-      if (connection === 'open') { global.__waQr = null; global.__waStatus = 'connected' }
+      if (connection === 'open') {
+        global.__waQr = null
+        global.__waStatus = 'connected'
+        global.__waLastOpenAt = Date.now()
+      }
       if (connection === 'close') {
         global.__waStatus = 'disconnected'
+        global.__waSock = null
         global.__waQr = null
         const code = (lastDisconnect?.error as Boom)?.output?.statusCode
-        if (code !== DisconnectReason.loggedOut) startWhatsApp()
+        if (code === DisconnectReason.loggedOut) {
+          global.__waLoggedOut = true
+          return
+        }
+        scheduleWhatsAppReconnect(5000)
       }
     })
 
@@ -177,9 +227,86 @@ export async function startWhatsApp() {
   }
 }
 
-export async function sendWAMessage(to: string, body: string) {
+export function ensureWhatsAppSupervisor() {
+  if (!global.__waSupervisor) {
+    global.__waSupervisor = setInterval(() => {
+      if (global.__waLoggedOut || !hasSavedWhatsAppSession()) return
+      if (global.__waStatus === 'disconnected') {
+        startWhatsApp().catch(error => console.error('[WhatsApp] supervisor restart failed:', error))
+      }
+    }, 15000)
+  }
+
+  if (global.__waStatus === 'disconnected' && hasSavedWhatsAppSession() && !global.__waLoggedOut) {
+    startWhatsApp().catch(error => console.error('[WhatsApp] supervisor start failed:', error))
+  }
+}
+
+export async function ensureWhatsAppReady() {
+  if (global.__waStatus !== 'connected') {
+    await startWhatsApp()
+    await waitForWAConnected()
+  }
   if (!global.__waSock || global.__waStatus !== 'connected') throw new Error('WhatsApp no conectado')
+}
+
+function scheduleWhatsAppReconnect(delayMs = 5000) {
+  if (!hasSavedWhatsAppSession() || global.__waLoggedOut) return
+  const now = Date.now()
+  if (now - global.__waLastReconnectAt < 3000) return
+  global.__waLastReconnectAt = now
+  setTimeout(() => {
+    if (global.__waStatus !== 'connected' && hasSavedWhatsAppSession() && !global.__waLoggedOut) {
+      startWhatsApp().catch(error => console.error('[WhatsApp] reconnect failed:', error))
+    }
+  }, delayMs)
+}
+
+function markWhatsAppSendFailure(error: unknown) {
+  console.error('[WhatsApp] send failed:', error)
+  global.__waStatus = 'disconnected'
+  global.__waSock = null
+  scheduleWhatsAppReconnect(3000)
+}
+
+export async function sendWAMessage(to: string, body: string) {
+  await ensureWhatsAppReady()
   const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`
-  await global.__waSock.sendMessage(jid, { text: body })
+  try {
+    await global.__waSock!.sendMessage(jid, { text: body })
+  } catch (error) {
+    markWhatsAppSendFailure(error)
+    throw error
+  }
+  return jid
+}
+
+export async function sendWAMediaMessage(opts: {
+  to: string
+  filePath: string
+  mimeType: string
+  fileName: string
+  caption?: string
+}) {
+  await ensureWhatsAppReady()
+  const jid = opts.to.includes('@') ? opts.to : `${opts.to}@s.whatsapp.net`
+  const bytes = fs.readFileSync(opts.filePath)
+
+  try {
+    if (opts.mimeType.startsWith('image/')) {
+      await global.__waSock!.sendMessage(jid, { image: bytes, caption: opts.caption, mimetype: opts.mimeType })
+    } else if (opts.mimeType.startsWith('video/')) {
+      await global.__waSock!.sendMessage(jid, { video: bytes, caption: opts.caption, mimetype: opts.mimeType })
+    } else if (opts.mimeType.startsWith('audio/')) {
+      await global.__waSock!.sendMessage(jid, { audio: bytes, mimetype: opts.mimeType })
+      if (opts.caption) await global.__waSock!.sendMessage(jid, { text: opts.caption })
+    } else {
+      await global.__waSock!.sendMessage(jid, { document: bytes, mimetype: opts.mimeType, fileName: opts.fileName, caption: opts.caption })
+    }
+  } catch (error) {
+    markWhatsAppSendFailure(error)
+    throw error
+  }
+
   return jid
 }

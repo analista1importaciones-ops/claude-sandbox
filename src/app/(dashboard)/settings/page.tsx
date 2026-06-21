@@ -1,10 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+interface GoogleStatus {
+  hasCredentials: boolean
+  connected: boolean
+  updatedAt: string | null
+  expiresAt: string | null
+  appointmentNotifyConfigured: boolean
+  appointmentReminderMinutes: string
+}
 
 export default function SettingsPage() {
   const [testEmail, setTestEmail] = useState('')
   const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle')
+  const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null)
+
+  useEffect(() => {
+    fetch('/api/google/status')
+      .then(res => res.ok ? res.json() : null)
+      .then(setGoogleStatus)
+      .catch(() => setGoogleStatus(null))
+  }, [])
 
   async function sendTest() {
     if (!testEmail) return
@@ -27,6 +44,70 @@ export default function SettingsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
         <p className="text-gray-500 text-sm mt-1">Parámetros del sistema GTL Rate Manager</p>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-1">Google Calendar</h2>
+        <p className="text-xs text-gray-400 mb-4">
+          Las citas se guardan en Google Calendar cuando la cuenta está conectada. Si no está conectado, la cita queda en el CRM pero no aparece en Calendar.
+        </p>
+
+        <div className="space-y-3 mb-5">
+          <div className="flex items-center justify-between py-2 border-b border-gray-100">
+            <span className="text-sm text-gray-600">Credenciales</span>
+            <span className={`text-sm font-medium ${googleStatus?.hasCredentials ? 'text-green-700' : 'text-red-600'}`}>
+              {googleStatus?.hasCredentials ? 'Configuradas' : 'Faltan GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-2 border-b border-gray-100">
+            <span className="text-sm text-gray-600">Cuenta conectada</span>
+            <span className={`text-sm font-medium ${googleStatus?.connected ? 'text-green-700' : 'text-amber-600'}`}>
+              {googleStatus?.connected ? 'Sí' : 'No'}
+            </span>
+          </div>
+          {googleStatus?.updatedAt && (
+            <div className="flex items-center justify-between py-2 border-b border-gray-100">
+              <span className="text-sm text-gray-600">Última conexión</span>
+              <span className="text-sm text-gray-700">{new Date(googleStatus.updatedAt).toLocaleString('es-GT')}</span>
+            </div>
+          )}
+        </div>
+
+        <a
+          href="/api/google/auth"
+          className="inline-flex px-4 py-2 text-sm font-medium bg-[#0d2d6b] text-white rounded-lg hover:bg-[#0a2456] transition-colors"
+        >
+          Conectar Google Calendar
+        </a>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-1">Recordatorios de Citas</h2>
+        <p className="text-xs text-gray-400 mb-4">
+          Al crear una cita se programan recordatorios por WhatsApp para el cliente y para el asesor/número interno configurado.
+        </p>
+
+        <div className="space-y-3 mb-4">
+          <div className="flex items-center justify-between py-2 border-b border-gray-100">
+            <span className="text-sm text-gray-600">Número interno WhatsApp</span>
+            <span className={`text-sm font-medium ${googleStatus?.appointmentNotifyConfigured ? 'text-green-700' : 'text-amber-600'}`}>
+              {googleStatus?.appointmentNotifyConfigured ? 'Configurado' : 'Falta APPOINTMENT_NOTIFY_PHONE'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-2 border-b border-gray-100">
+            <span className="text-sm text-gray-600">Recordatorios antes de la cita</span>
+            <span className="text-sm font-mono text-gray-700">{googleStatus?.appointmentReminderMinutes ?? '1440,60'} min</span>
+          </div>
+          <div className="flex items-center justify-between py-2 border-b border-gray-100">
+            <span className="text-sm text-gray-600">Cron de envío automático</span>
+            <span className="text-sm font-mono text-gray-700">CRON_SECRET</span>
+          </div>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+          Para producción configura <code className="bg-blue-100 px-1 rounded">APPOINTMENT_NOTIFY_PHONE</code> con tu número personal en formato internacional, por ejemplo <code className="bg-blue-100 px-1 rounded">5939XXXXXXXX</code>.
+          El cron debe llamar <code className="bg-blue-100 px-1 rounded">/api/scheduled-messages/run?token=CRON_SECRET</code> cada minuto o cada 5 minutos.
+        </div>
       </div>
 
       {/* Email notifications */}

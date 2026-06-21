@@ -9,6 +9,8 @@ const SOURCE_LABELS: Record<string, string> = {
   LLAMADA: 'Llamada', FERIA: 'Feria', OTRO: 'Otro',
 }
 const SERVICE_LABELS: Record<string, string> = {
+  CURSOS: 'Cursos', CARGA: 'Carga', ASESORIAS: 'Asesorías',
+  INSPECCIONES: 'Inspecciones', BUSQUEDA_PROVEEDORES: 'Búsqueda de proveedores',
   COURIER: 'Courier', NACIONALIZACION: 'Nacionalización',
   TRANSPORTE_PESADO: 'Transporte Pesado', SEGURO_CARGA: 'Seguro de Carga', OTRO: 'Otro',
 }

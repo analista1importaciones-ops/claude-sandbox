@@ -1,6 +1,8 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
+import { ensureWhatsAppSupervisor } from '@/lib/whatsapp'
+import { ensureScheduledMessageRunner } from '@/lib/workflows'
 import Sidebar from '@/components/Sidebar'
 import TopBar from '@/components/TopBar'
 
@@ -15,12 +17,15 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
+  ensureWhatsAppSupervisor()
+  ensureScheduledMessageRunner()
+
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
+    <div className="flex h-screen bg-gray-100 overflow-hidden md:flex-row">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar user={session.user} />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-3 pb-20 md:p-6">
           {children}
         </main>
       </div>

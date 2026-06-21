@@ -11,8 +11,8 @@ interface TopBarProps {
 
 export default function TopBar({ user }: TopBarProps) {
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-      <div className="text-sm text-gray-500">
+    <header className="bg-white border-b border-gray-200 px-3 py-3 md:px-6 flex items-center justify-between">
+      <div className="text-xs text-gray-500 md:text-sm truncate">
         {new Date().toLocaleDateString('es-EC', {
           weekday: 'long',
           year: 'numeric',
@@ -21,7 +21,7 @@ export default function TopBar({ user }: TopBarProps) {
         })}
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
         <div className="text-right hidden sm:block">
           <div className="text-sm font-medium text-gray-800">{user?.name ?? 'Usuario'}</div>
           <div className="text-xs text-gray-500">{user?.email}</div>

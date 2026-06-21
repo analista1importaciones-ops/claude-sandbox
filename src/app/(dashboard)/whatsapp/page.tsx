@@ -3,64 +3,15 @@
 import { useEffect, useState, useRef } from 'react'
 import QRCode from 'qrcode'
 
-interface Message { id: string; remoteJid: string; phoneJid: string | null; fromMe: boolean; content: string; timestamp: string; contactId: string | null; mediaUrl: string | null; mediaType: string | null }
-interface Conversation { id: string; remoteJid: string; phoneJid: string | null; content: string; timestamp: string; fromMe: boolean; unreadCount: number; convStatus: string; waName: string | null; contact: { id: string; name: string; phone: string | null } | null }
-interface Contact { id: string; name: string; company: string | null; phone: string | null; email: string | null; waName: string | null; tags: string[]; serviceLabel: string; source?: string }
+interface Message { id: string; remoteJid: string; fromMe: boolean; content: string; timestamp: string; contactId: string | null; mediaUrl: string | null; mediaType: string | null }
+interface Conversation { id: string; remoteJid: string; content: string; timestamp: string; fromMe: boolean; unreadCount: number; convStatus: string; waName: string | null; contact: { id: string; name: string } | null }
+interface Contact { id: string; name: string; company: string | null; phone: string | null; email: string | null; waName: string | null; tags: string[]; serviceLabel: string }
 interface QuickReply { id: string; title: string; body: string }
 interface InternalNote { id: string; content: string; createdAt: string }
 interface ScheduledMsg { id: string; body: string; sendAt: string; sent: boolean }
 
-const TAGS = [
-  'Cursos',
-  'Carga',
-  'Asesorías',
-  'Inspecciones',
-  'Búsqueda de proveedores',
-  'Courier',
-  'Nacionalización',
-  'Transporte pesado',
-  'Seguro de carga',
-  'Cliente antiguo',
-  'Prospecto',
-  'WhatsApp',
-]
+const TAGS = ['Pagó curso', 'Courier', 'Carga', 'Cliente antiguo', 'Prospecto', 'Seguro', 'Transporte']
 const SERVICE_LABELS = ['COURIER', 'NACIONALIZACION', 'TRANSPORTE_PESADO', 'SEGURO_CARGA', 'OTRO']
-
-function getPhoneFromJid(jid: string) {
-  if (!jid.endsWith('@s.whatsapp.net')) return null
-  return jid.replace('@s.whatsapp.net', '')
-}
-
-function getPhoneFromConversation(conv: Conversation | undefined, selectedJid: string | null) {
-  return conv?.contact?.phone ?? getPhoneFromJid(conv?.phoneJid ?? '') ?? (selectedJid ? getPhoneFromJid(selectedJid) : null)
-}
-
-function normalizePhone(phone: string | null | undefined) {
-  if (!phone) return null
-  const digits = phone.replace(/\D/g, '')
-  if (!digits) return null
-  if (digits.startsWith('593')) return `+${digits}`
-  if (digits.startsWith('0') && digits.length === 10) return `+593${digits.slice(1)}`
-  if (digits.startsWith('9') && digits.length === 9) return `+593${digits}`
-  return phone.startsWith('+') ? phone : `+${digits}`
-}
-
-function getJidLabel(jid: string) {
-  if (jid.endsWith('@lid')) return jid.replace('@lid', '')
-  if (jid.endsWith('@g.us')) return jid.replace('@g.us', '')
-  return jid
-}
-
-function getSupportedAudioMimeType() {
-  const types = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
-  return types.find(type => MediaRecorder.isTypeSupported(type)) ?? ''
-}
-
-function getAudioExtension(mimeType: string) {
-  if (mimeType.includes('ogg')) return 'ogg'
-  if (mimeType.includes('mp4')) return 'm4a'
-  return 'webm'
-}
 
 export default function WhatsAppPage() {
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected')
@@ -68,7 +19,6 @@ export default function WhatsAppPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedJid, setSelectedJid] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
-  const [waError, setWaError] = useState('')
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const [activeTab, setActiveTab] = useState<'chat' | 'notes' | 'scheduled'>('chat')
@@ -79,7 +29,6 @@ export default function WhatsAppPage() {
   const [showQR, setShowQR] = useState(false)
   const [newQRTitle, setNewQRTitle] = useState('')
   const [newQRBody, setNewQRBody] = useState('')
-  const [editingQR, setEditingQR] = useState<QuickReply | null>(null)
   const [notes, setNotes] = useState<InternalNote[]>([])
   const [newNote, setNewNote] = useState('')
   const [scheduled, setScheduled] = useState<ScheduledMsg[]>([])
@@ -115,25 +64,13 @@ export default function WhatsAppPage() {
   }
   async function loadConversations() {
     const res = await fetch('/api/whatsapp/conversations')
-    const data = await res.json().catch(() => null)
-    if (res.ok && Array.isArray(data)) {
-      setConversations(data)
-      setWaError('')
-    } else if (!res.ok) {
-      setWaError(data?.error ?? 'No se pudieron cargar las conversaciones.')
-    }
+    if (res.ok) setConversations(await res.json())
   }
   async function loadMessages(jid: string) {
     const res = await fetch('/api/whatsapp/messages?jid=' + encodeURIComponent(jid))
-    const data = await res.json().catch(() => null)
-    if (res.ok && Array.isArray(data)) {
-      setMessages(data)
-      setWaError('')
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
-    } else {
-      setMessages([])
-      setWaError(data?.error ?? 'No se pudieron cargar los mensajes.')
-    }
+    const data = await res.json()
+    setMessages(data)
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
   async function loadContacts() {
     const res = await fetch('/api/contacts?limit=200')
@@ -167,11 +104,10 @@ export default function WhatsAppPage() {
       fd.append('to', selectedJid)
       fd.append('file', attachFile)
       if (reply.trim()) fd.append('caption', reply)
-      if (linkedContact?.id) fd.append('contactId', linkedContact.id)
       await fetch('/api/whatsapp/send-media', { method: 'POST', body: fd })
       setAttachFile(null)
     } else {
-      await fetch('/api/whatsapp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: selectedJid, body: reply, contactId: linkedContact?.id }) })
+      await fetch('/api/whatsapp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: selectedJid, body: reply }) })
     }
     setReply(''); setSending(false)
     loadMessages(selectedJid); loadConversations()
@@ -201,7 +137,7 @@ export default function WhatsAppPage() {
 
   function openContactEdit(c?: Contact | null) {
     const conv = conversations.find(x => x.remoteJid === selectedJid)
-    const phone = normalizePhone(c?.phone ?? getPhoneFromConversation(conv, selectedJid)) ?? ''
+    const phone = selectedJid?.replace('@s.whatsapp.net', '').replace('@g.us', '') ?? ''
     if (c) {
       setContactForm({ name: c.name, phone: c.phone ?? phone, email: c.email ?? '', company: c.company ?? '', waName: c.waName ?? conv?.waName ?? '', tags: c.tags ?? [], serviceLabel: c.serviceLabel ?? 'OTRO' })
     } else {
@@ -214,10 +150,10 @@ export default function WhatsAppPage() {
     setSavingContact(true)
     try {
       if (linkedContact) {
-        const res = await fetch(`/api/contacts/${linkedContact.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...contactForm, remoteJid: selectedJid }) })
+        const res = await fetch(`/api/contacts/${linkedContact.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contactForm) })
         if (res.ok) { const updated = await res.json(); setLinkedContact(updated) }
       } else {
-        const res = await fetch('/api/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...contactForm, remoteJid: selectedJid, source: 'OTRO' }) })
+        const res = await fetch('/api/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contactForm) })
         if (res.ok) { const created = await res.json(); setLinkedContact(created) }
       }
       setEditingContact(false)
@@ -230,36 +166,23 @@ export default function WhatsAppPage() {
 
   async function startRecording() {
     if (!selectedJid) return
-    const jid = selectedJid
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mimeType = getSupportedAudioMimeType()
-      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/ogg;codecs=opus'
+      const mr = new MediaRecorder(stream, { mimeType })
       const chunks: BlobPart[] = []
       mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
       mr.onstop = async () => {
-        try {
-          stream.getTracks().forEach(t => t.stop())
-          if (chunks.length === 0) throw new Error('La grabación quedó vacía')
-          const finalMimeType = mimeType || 'audio/webm'
-          const blob = new Blob(chunks, { type: finalMimeType })
-          const file = new File([blob], `audio.${getAudioExtension(finalMimeType)}`, { type: finalMimeType })
-          const fd = new FormData()
-          fd.append('to', jid)
-          fd.append('file', file)
-          fd.append('ptt', 'true')
-          if (linkedContact?.id) fd.append('contactId', linkedContact.id)
-          const res = await fetch('/api/whatsapp/send-media', { method: 'POST', body: fd })
-          if (!res.ok) {
-            const data = await res.json().catch(() => null)
-            throw new Error(data?.error || 'No se pudo enviar el audio')
-          }
-          loadMessages(jid); loadConversations()
-        } catch (error) {
-          alert(error instanceof Error ? error.message : 'No se pudo enviar el audio')
-        } finally {
-          setRecording(false); setRecSeconds(0)
-        }
+        stream.getTracks().forEach(t => t.stop())
+        const blob = new Blob(chunks, { type: mimeType })
+        const ext = mimeType.includes('webm') ? 'webm' : 'ogg'
+        const file = new File([blob], `audio.${ext}`, { type: mimeType })
+        const fd = new FormData()
+        fd.append('to', selectedJid!)
+        fd.append('file', file)
+        await fetch('/api/whatsapp/send-media', { method: 'POST', body: fd })
+        loadMessages(selectedJid!); loadConversations()
+        setRecording(false); setRecSeconds(0)
       }
       mr.start()
       mediaRecorderRef.current = mr
@@ -300,11 +223,6 @@ export default function WhatsAppPage() {
   async function deleteQR(id: string) {
     await fetch('/api/quick-replies/' + id, { method: 'DELETE' }); loadQuickReplies()
   }
-  async function updateQR() {
-    if (!editingQR) return
-    await fetch(`/api/quick-replies/${editingQR.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editingQR.title, body: editingQR.body }) })
-    setEditingQR(null); loadQuickReplies()
-  }
   async function scheduleMessage() {
     if (!schedBody.trim() || !schedAt || !selectedJid) return
     await fetch('/api/scheduled-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remoteJid: selectedJid, body: schedBody, sendAt: new Date(schedAt).toISOString(), contactId: linkedContact?.id }) })
@@ -312,14 +230,14 @@ export default function WhatsAppPage() {
   }
   async function createAppointment() {
     if (!apptTitle.trim() || !apptStart || !apptEnd) return
-    await fetch('/api/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: apptTitle, description: apptDesc, startAt: new Date(apptStart).toISOString(), endAt: new Date(apptEnd).toISOString(), contactId: linkedContact?.id, contactName: selectedConv?.contact?.name ?? selectedConv?.waName, remoteJid: apptNotify ? selectedJid : undefined, notifyClient: apptNotify }) })
+    await fetch('/api/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: apptTitle, description: apptDesc, startAt: new Date(apptStart).toISOString(), endAt: new Date(apptEnd).toISOString(), contactId: linkedContact?.id, remoteJid: apptNotify ? selectedJid : undefined }) })
     setApptTitle(''); setApptDesc(''); setApptStart(''); setApptEnd(''); setShowApptModal(false)
   }
 
   useEffect(() => {
     pollStatus(); loadConversations(); loadContacts(); loadQuickReplies()
-    const si = setInterval(pollStatus, 15000)
-    const sc = setInterval(loadConversations, 10000)
+    const si = setInterval(pollStatus, 5000)
+    const sc = setInterval(loadConversations, 5000)
     return () => { clearInterval(si); clearInterval(sc) }
   }, [])
 
@@ -336,27 +254,19 @@ export default function WhatsAppPage() {
       }
       setEditingContact(false)
       setActiveTab('chat')
-      const iv = setInterval(() => loadMessages(selectedJid), 8000)
+      const iv = setInterval(() => loadMessages(selectedJid), 5000)
       return () => clearInterval(iv)
     }
   }, [selectedJid])
 
-  const safeConversations = Array.isArray(conversations) ? conversations : []
-  const safeMessages = Array.isArray(messages) ? messages : []
-  const safeContacts = Array.isArray(contacts) ? contacts : []
-  const safeQuickReplies = Array.isArray(quickReplies) ? quickReplies : []
-  const safeNotes = Array.isArray(notes) ? notes : []
-  const safeScheduled = Array.isArray(scheduled) ? scheduled : []
-  const selectedConv = safeConversations.find(c => c.remoteJid === selectedJid)
-  const selectedPhone = normalizePhone(linkedContact?.phone ?? getPhoneFromConversation(selectedConv, selectedJid))
-  const selectedJidLabel = selectedJid ? getJidLabel(selectedJid) : ''
-  const filteredConversations = safeConversations.filter(c => {
+  const selectedConv = conversations.find(c => c.remoteJid === selectedJid)
+  const filteredConversations = conversations.filter(c => {
     if (!convSearch.trim()) return true
     const name = (c.contact?.name ?? c.waName ?? c.remoteJid).toLowerCase()
-    const phone = normalizePhone(c.contact?.phone ?? getPhoneFromJid(c.phoneJid ?? '') ?? getPhoneFromJid(c.remoteJid)) ?? ''
+    const phone = c.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '')
     return name.includes(convSearch.toLowerCase()) || phone.includes(convSearch)
   })
-  const filteredContacts = safeContacts.filter(c => c.name.toLowerCase().includes(contactSearch.toLowerCase()) || (c.phone ?? '').includes(contactSearch))
+  const filteredContacts = contacts.filter(c => c.name.toLowerCase().includes(contactSearch.toLowerCase()) || (c.phone ?? '').includes(contactSearch))
 
   return (
     <div className="flex h-[calc(100vh-64px)]">
@@ -377,15 +287,20 @@ export default function WhatsAppPage() {
           <input type="text" value={convSearch} onChange={e => setConvSearch(e.target.value)} placeholder="Buscar chat..." className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400" />
         </div>
         <div className="flex-1 overflow-y-auto">
-          {safeConversations.length === 0
+          {conversations.length === 0
             ? <p className="text-xs text-gray-400 text-center mt-8 px-4">{status === 'connected' ? 'Los chats apareceran aqui cuando recibas mensajes' : 'Conecta WhatsApp para ver los chats'}</p>
             : filteredConversations.map(conv => (
               <button key={conv.remoteJid} onClick={() => setSelectedJid(conv.remoteJid)}
                 className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${selectedJid === conv.remoteJid ? 'bg-green-50 border-l-2 border-l-green-500' : ''}`}>
                 <div className="flex items-center justify-between">
-                  <span className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
-                    {conv.contact?.name ?? conv.waName ?? getJidLabel(conv.remoteJid)}
-                  </span>
+                  <div className="truncate">
+                    <span className={`text-sm ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
+                      {conv.contact?.name ?? conv.waName ?? conv.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '')}
+                    </span>
+                    {conv.contact?.name || conv.waName ? (
+                      <span className="block text-xs text-gray-400">{conv.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '')}</span>
+                    ) : null}
+                  </div>
                   <div className="flex items-center gap-1 flex-shrink-0 ml-1">
                     {conv.unreadCount > 0 && (
                       <span className="bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">{conv.unreadCount > 9 ? '9+' : conv.unreadCount}</span>
@@ -404,28 +319,13 @@ export default function WhatsAppPage() {
 
       {/* Center: chat */}
       <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
-        {waError && (
-          <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-700">
-            {waError}
-          </div>
-        )}
         {!selectedJid
           ? <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">{status === 'connected' ? 'Selecciona una conversacion' : 'Conecta WhatsApp para ver los chats'}</div>
           : <>
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="font-medium text-gray-800">{selectedConv?.contact?.name ?? selectedConv?.waName ?? getJidLabel(selectedJid)}</p>
-                <div className="flex flex-wrap items-center gap-2 mt-1">
-                  {selectedPhone ? (
-                    <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 border border-green-100">
-                      Tel: {selectedPhone}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-100">
-                      ID WhatsApp: {selectedJidLabel}
-                    </span>
-                  )}
-                </div>
+                <p className="font-medium text-gray-800">{selectedConv?.contact?.name ?? selectedConv?.waName ?? selectedJid.replace('@s.whatsapp.net', '')}</p>
+                <p className="text-xs text-gray-400">{selectedJid.replace('@s.whatsapp.net', '')}</p>
               </div>
               <div className="flex gap-2 items-center">
                 {selectedConv && selectedConv.convStatus !== 'ATTENDED' && (
@@ -446,7 +346,7 @@ export default function WhatsAppPage() {
             {activeTab === 'chat' && (
               <>
                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                  {safeMessages.map(m => (
+                  {messages.map(m => (
                     <div key={m.id} className={`flex ${m.fromMe ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-xs px-3 py-2 rounded-xl text-sm ${m.fromMe ? 'bg-green-500 text-white' : 'bg-white text-gray-800 border border-gray-100'}`}>
                         {renderMedia(m)}
@@ -480,9 +380,9 @@ export default function WhatsAppPage() {
                       <button onClick={() => setShowQRPicker(!showQRPicker)} className="p-2 text-gray-400 hover:text-yellow-500" title="Respuestas rapidas">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                       </button>
-                      {showQRPicker && safeQuickReplies.length > 0 && (
+                      {showQRPicker && quickReplies.length > 0 && (
                         <div className="absolute bottom-10 left-0 bg-white border border-gray-200 rounded-lg shadow-lg w-64 max-h-48 overflow-y-auto z-10">
-                          {safeQuickReplies.map(qr => (
+                          {quickReplies.map(qr => (
                             <button key={qr.id} onClick={() => { setReply(qr.body); setShowQRPicker(false) }}
                               className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0">
                               <p className="text-xs font-medium text-gray-700">{qr.title}</p>
@@ -506,8 +406,8 @@ export default function WhatsAppPage() {
             {activeTab === 'notes' && (
               <div className="flex-1 flex flex-col p-4 gap-3">
                 <div className="flex-1 overflow-y-auto space-y-2">
-                  {safeNotes.length === 0 && <p className="text-xs text-gray-400 text-center mt-8">No hay notas internas</p>}
-                  {safeNotes.map(n => (
+                  {notes.length === 0 && <p className="text-xs text-gray-400 text-center mt-8">No hay notas internas</p>}
+                  {notes.map(n => (
                     <div key={n.id} className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
                       <p className="text-sm text-gray-800">{n.content}</p>
                       <p className="text-xs text-gray-400 mt-1">{new Date(n.createdAt).toLocaleString('es-GT')}</p>
@@ -527,8 +427,8 @@ export default function WhatsAppPage() {
                   <button onClick={() => setShowSchedModal(true)} className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">+ Programar mensaje</button>
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-2">
-                  {safeScheduled.length === 0 && <p className="text-xs text-gray-400 text-center mt-8">No hay mensajes programados</p>}
-                  {safeScheduled.map(s => (
+                  {scheduled.length === 0 && <p className="text-xs text-gray-400 text-center mt-8">No hay mensajes programados</p>}
+                  {scheduled.map(s => (
                     <div key={s.id} className={`border rounded-lg px-3 py-2 ${s.sent ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'}`}>
                       <p className="text-sm text-gray-800">{s.body}</p>
                       <p className="text-xs text-gray-400 mt-1">{new Date(s.sendAt).toLocaleString('es-GT')} {s.sent ? 'Enviado' : 'Pendiente'}</p>
@@ -584,14 +484,7 @@ export default function WhatsAppPage() {
               <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                 <p className="text-sm font-medium text-gray-800">{linkedContact.name}</p>
                 {linkedContact.company && <p className="text-xs text-gray-500">{linkedContact.company}</p>}
-                <a href={`/crm/contacts/${linkedContact.id}`} className="inline-flex mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium">
-                  Ver en CRM
-                </a>
-                <div className="mt-2 rounded-md bg-white/70 border border-green-100 px-2 py-1.5">
-                  <p className="text-[10px] uppercase tracking-wide text-gray-400">{selectedPhone ? 'Número WhatsApp' : 'ID WhatsApp'}</p>
-                  <p className="text-sm font-semibold text-gray-800">{selectedPhone ?? selectedJidLabel}</p>
-                  {!selectedPhone && <p className="text-xs text-amber-600">Completa el teléfono real del cliente.</p>}
-                </div>
+                {linkedContact.phone && <p className="text-xs text-gray-400">{linkedContact.phone}</p>}
                 {linkedContact.waName && <p className="text-xs text-gray-400">WA: {linkedContact.waName}</p>}
                 {linkedContact.tags?.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
@@ -603,11 +496,6 @@ export default function WhatsAppPage() {
               </div>
             ) : (
               <div>
-                <div className="mb-3 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-gray-400">{selectedPhone ? 'Número WhatsApp' : 'ID WhatsApp'}</p>
-                  <p className="text-sm font-semibold text-gray-800">{selectedPhone ?? selectedJidLabel}</p>
-                  {!selectedPhone && <p className="text-xs text-amber-600">WhatsApp no entregó el número real.</p>}
-                </div>
                 <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="Buscar contacto..." className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400 mb-2" />
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {filteredContacts.slice(0, 10).map(c => (
@@ -640,30 +528,16 @@ export default function WhatsAppPage() {
               </div>
             )}
             <div className="space-y-1 max-h-48 overflow-y-auto">
-              {safeQuickReplies.map(qr => (
-                <div key={qr.id} className="group">
-                  {editingQR?.id === qr.id ? (
-                    <div className="space-y-1 p-1">
-                      <input value={editingQR.title} onChange={e => setEditingQR({ ...editingQR, title: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
-                      <textarea value={editingQR.body} onChange={e => setEditingQR({ ...editingQR, body: e.target.value })} rows={3} className="w-full border border-gray-200 rounded px-2 py-1 text-xs resize-none" />
-                      <div className="flex gap-1">
-                        <button onClick={updateQR} className="flex-1 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">Guardar</button>
-                        <button onClick={() => setEditingQR(null)} className="flex-1 py-1 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200">Cancelar</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-start gap-1">
-                      <button onClick={() => { setReply(qr.body); setActiveTab('chat') }} className="flex-1 text-left px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">
-                        <span className="font-medium">{qr.title}</span>
-                        <span className="block text-gray-400 truncate">{qr.body}</span>
-                      </button>
-                      <button onClick={() => setEditingQR(qr)} className="opacity-0 group-hover:opacity-100 text-blue-300 hover:text-blue-500 p-1 text-xs">✎</button>
-                      <button onClick={() => deleteQR(qr.id)} className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 p-1 text-xs">x</button>
-                    </div>
-                  )}
+              {quickReplies.map(qr => (
+                <div key={qr.id} className="flex items-start gap-1 group">
+                  <button onClick={() => { setReply(qr.body); setActiveTab('chat') }} className="flex-1 text-left px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">
+                    <span className="font-medium">{qr.title}</span>
+                    <span className="block text-gray-400 truncate">{qr.body}</span>
+                  </button>
+                  <button onClick={() => deleteQR(qr.id)} className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 p-1 text-xs">x</button>
                 </div>
               ))}
-              {safeQuickReplies.length === 0 && <p className="text-xs text-gray-400">Sin respuestas guardadas</p>}
+              {quickReplies.length === 0 && <p className="text-xs text-gray-400">Sin respuestas guardadas</p>}
             </div>
           </div>
         </div>

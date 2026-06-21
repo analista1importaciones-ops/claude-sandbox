@@ -54,6 +54,7 @@ function Card({ apt, fmt, upcoming }: { apt: Appointment; fmt: (s: string) => st
         </div>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">
           {apt.googleEventId && <span className="text-green-600">✓ Guardado en Google Calendar</span>}
+          {!apt.googleEventId && upcoming && <span className="text-amber-600">No está en Google Calendar</span>}
           {apt.notified && <span className="text-blue-600">✓ Cliente notificado</span>}
           {!apt.notified && upcoming && <span className="text-amber-600">Cliente no notificado</span>}
         </div>
