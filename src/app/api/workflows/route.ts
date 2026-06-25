@@ -14,6 +14,20 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
-  const wf = await prisma.workflow.create({ data: body, include: { template: true } })
+  const serviceTag = !body.serviceTag || ['Todos', 'Todos los servicios'].includes(body.serviceTag) ? null : body.serviceTag
+  const wf = await prisma.workflow.create({
+    data: {
+      name: body.name,
+      trigger: body.trigger,
+      stage: body.stage || null,
+      serviceTag,
+      delayDays: Number(body.delayDays || 0),
+      delayHours: Number(body.delayHours || 0),
+      delayMinutes: Number(body.delayMinutes || 0),
+      templateId: body.templateId || null,
+      active: body.active ?? true,
+    },
+    include: { template: true },
+  })
   return NextResponse.json(wf)
 }

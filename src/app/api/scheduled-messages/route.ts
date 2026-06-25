@@ -19,6 +19,14 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   return NextResponse.json(await prisma.scheduledMessage.create({
-    data: { remoteJid: body.remoteJid, body: body.body, sendAt: new Date(body.sendAt), contactId: body.contactId || null },
+    data: {
+      remoteJid: body.remoteJid,
+      body: body.body,
+      mediaUrl: body.mediaUrl || null,
+      mediaType: body.mediaType || null,
+      mediaName: body.mediaName || null,
+      sendAt: new Date(body.sendAt),
+      contactId: body.contactId || null,
+    },
   }))
 }

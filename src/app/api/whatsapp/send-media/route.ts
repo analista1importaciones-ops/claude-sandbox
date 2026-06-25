@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { ensureWhatsAppReady } from '@/lib/whatsapp'
 import path from 'path'
 import fs from 'fs'
 
@@ -9,8 +10,11 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { __waSock, __waStatus } = global as any
-  if (!__waSock || __waStatus !== 'connected') return NextResponse.json({ error: 'WhatsApp no conectado' }, { status: 400 })
+  const sock = await ensureWhatsAppReady().catch(error => {
+    console.error('[WhatsApp] send media ensure error:', error)
+    return null
+  })
+  if (!sock) return NextResponse.json({ error: 'WhatsApp no conectado' }, { status: 400 })
 
   const form = await req.formData()
   const to = form.get('to') as string
@@ -21,7 +25,9 @@ export async function POST(req: NextRequest) {
 
   if (!to || !file) return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
 
-  const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`
+  let digits = to.replace(/\D/g, '')
+  if (digits.startsWith('0') && digits.length === 10) digits = `593${digits.slice(1)}`
+  const jid = to.includes('@') ? to : `${digits}@s.whatsapp.net`
   const bytes = Buffer.from(await file.arrayBuffer())
   const mime = file.type
   const name = file.name
@@ -31,20 +37,20 @@ export async function POST(req: NextRequest) {
   let sentAsDocument = shouldSendRecordedAudioAsDocument
   try {
     if (mime.startsWith('image/')) {
-      sentMsg = await __waSock.sendMessage(jid, { image: bytes, caption, mimetype: mime })
+      sentMsg = await sock.sendMessage(jid, { image: bytes, caption, mimetype: mime })
     } else if (shouldSendRecordedAudioAsDocument) {
-      sentMsg = await __waSock.sendMessage(jid, {
+      sentMsg = await sock.sendMessage(jid, {
         document: bytes,
         mimetype: mime || 'audio/webm',
         fileName: name,
         caption: caption || 'Audio grabado',
       })
     } else if (mime.startsWith('audio/')) {
-      sentMsg = await __waSock.sendMessage(jid, { audio: bytes, mimetype: mime || 'audio/ogg; codecs=opus', ptt })
+      sentMsg = await sock.sendMessage(jid, { audio: bytes, mimetype: mime || 'audio/ogg; codecs=opus', ptt })
     } else if (mime.startsWith('video/')) {
-      sentMsg = await __waSock.sendMessage(jid, { video: bytes, caption, mimetype: mime })
+      sentMsg = await sock.sendMessage(jid, { video: bytes, caption, mimetype: mime })
     } else {
-      sentMsg = await __waSock.sendMessage(jid, { document: bytes, mimetype: mime, fileName: name, caption })
+      sentMsg = await sock.sendMessage(jid, { document: bytes, mimetype: mime, fileName: name, caption })
     }
   } catch (error) {
     console.error('[WhatsApp] send media error:', error)
@@ -52,7 +58,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'WhatsApp rechazó el archivo. Intenta enviarlo de nuevo.' }, { status: 500 })
     }
     try {
-      sentMsg = await __waSock.sendMessage(jid, {
+      sentMsg = await sock.sendMessage(jid, {
         document: bytes,
         mimetype: mime || 'audio/webm',
         fileName: name,

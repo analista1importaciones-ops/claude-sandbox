@@ -25,11 +25,20 @@ const SERVICE_TAGS = [
   'Seguro de carga',
 ]
 
-interface Template { id: string; name: string; body: string }
-interface Workflow { id: string; name: string; trigger: string; stage: string | null; serviceTag: string | null; delayDays: number; active: boolean; template: Template | null }
-interface SequenceStep { delayDays: string; templateId: string }
+interface Template { id: string; name: string; body: string; mediaUrl?: string | null; mediaType?: string | null; mediaName?: string | null }
+interface Workflow { id: string; name: string; trigger: string; stage: string | null; serviceTag: string | null; delayDays: number; delayHours: number; delayMinutes: number; active: boolean; template: Template | null }
+interface SequenceStep { delayDays: string; delayHours: string; delayMinutes: string; templateId: string }
 
 type Tab = 'workflows' | 'secuencias' | 'plantillas'
+
+function formatDelay(days = 0, hours = 0, minutes = 0) {
+  const parts = [
+    days > 0 ? `${days}d` : '',
+    hours > 0 ? `${hours}h` : '',
+    minutes > 0 ? `${minutes}min` : '',
+  ].filter(Boolean)
+  return parts.length > 0 ? parts.join(' ') : 'Inmediato'
+}
 
 export default function WorkflowsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('workflows')
@@ -43,15 +52,17 @@ export default function WorkflowsPage() {
   const [wfStage, setWfStage] = useState('COTIZADO')
   const [wfServiceTag, setWfServiceTag] = useState('Todos')
   const [wfDelayDays, setWfDelayDays] = useState('0')
+  const [wfDelayHours, setWfDelayHours] = useState('0')
+  const [wfDelayMinutes, setWfDelayMinutes] = useState('0')
   const [wfTemplateId, setWfTemplateId] = useState('')
   const [sequenceName, setSequenceName] = useState('')
   const [sequenceTrigger, setSequenceTrigger] = useState('DEAL_STAGE_CHANGED')
   const [sequenceStage, setSequenceStage] = useState('COTIZADO')
   const [sequenceServiceTag, setSequenceServiceTag] = useState('Cursos')
   const [sequenceSteps, setSequenceSteps] = useState<SequenceStep[]>([
-    { delayDays: '0', templateId: '' },
-    { delayDays: '3', templateId: '' },
-    { delayDays: '7', templateId: '' },
+    { delayDays: '0', delayHours: '0', delayMinutes: '0', templateId: '' },
+    { delayDays: '0', delayHours: '0', delayMinutes: '15', templateId: '' },
+    { delayDays: '1', delayHours: '0', delayMinutes: '0', templateId: '' },
   ])
   const [tplName, setTplName] = useState('')
   const [tplBody, setTplBody] = useState('')
@@ -75,11 +86,13 @@ export default function WorkflowsPage() {
         stage: wfTrigger === 'DEAL_STAGE_CHANGED' ? wfStage : null,
         serviceTag: wfServiceTag === 'Todos' ? null : wfServiceTag,
         delayDays: Number(wfDelayDays) || 0,
+        delayHours: Number(wfDelayHours) || 0,
+        delayMinutes: Number(wfDelayMinutes) || 0,
         templateId: wfTemplateId,
         active: true,
       }),
     })
-    setWfName(''); setWfTrigger('DEAL_STAGE_CHANGED'); setWfStage('COTIZADO'); setWfServiceTag('Todos'); setWfDelayDays('0'); setWfTemplateId(''); setShowWfForm(false); load()
+    setWfName(''); setWfTrigger('DEAL_STAGE_CHANGED'); setWfStage('COTIZADO'); setWfServiceTag('Todos'); setWfDelayDays('0'); setWfDelayHours('0'); setWfDelayMinutes('0'); setWfTemplateId(''); setShowWfForm(false); load()
   }
 
   const saveSequence = async () => {
@@ -95,6 +108,8 @@ export default function WorkflowsPage() {
         stage: sequenceTrigger === 'DEAL_STAGE_CHANGED' ? sequenceStage : null,
         serviceTag: sequenceServiceTag === 'Todos' ? null : sequenceServiceTag,
         delayDays: Number(step.delayDays) || 0,
+        delayHours: Number(step.delayHours) || 0,
+        delayMinutes: Number(step.delayMinutes) || 0,
         templateId: step.templateId,
         active: true,
       }),
@@ -105,9 +120,9 @@ export default function WorkflowsPage() {
     setSequenceStage('COTIZADO')
     setSequenceServiceTag('Cursos')
     setSequenceSteps([
-      { delayDays: '0', templateId: '' },
-      { delayDays: '3', templateId: '' },
-      { delayDays: '7', templateId: '' },
+      { delayDays: '0', delayHours: '0', delayMinutes: '0', templateId: '' },
+      { delayDays: '0', delayHours: '0', delayMinutes: '15', templateId: '' },
+      { delayDays: '1', delayHours: '0', delayMinutes: '0', templateId: '' },
     ])
     load()
   }
@@ -140,7 +155,7 @@ export default function WorkflowsPage() {
   }
 
   const addSequenceStep = () => {
-    setSequenceSteps(steps => [...steps, { delayDays: '14', templateId: '' }])
+    setSequenceSteps(steps => [...steps, { delayDays: '0', delayHours: '1', delayMinutes: '0', templateId: '' }])
   }
 
   const removeSequenceStep = (index: number) => {
@@ -222,9 +237,19 @@ export default function WorkflowsPage() {
                     {SERVICE_TAGS.map(tag => <option key={tag} value={tag}>{tag}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Enviar después de</label>
-                  <input type="number" min="0" value={wfDelayDays} onChange={e => setWfDelayDays(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="0 días" />
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Días</label>
+                    <input type="number" min="0" value={wfDelayDays} onChange={e => setWfDelayDays(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Horas</label>
+                    <input type="number" min="0" value={wfDelayHours} onChange={e => setWfDelayHours(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Min</label>
+                    <input type="number" min="0" value={wfDelayMinutes} onChange={e => setWfDelayMinutes(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
                 </div>
               </div>
               <div>
@@ -257,7 +282,7 @@ export default function WorkflowsPage() {
                   {wf.trigger === 'CONTACT_CREATED'
                     ? <>Contacto creado</>
                     : <>Deal → <span className="font-medium text-gray-600">{STAGES.find(s => s.value === wf.stage)?.label ?? wf.stage}</span></>}
-                  {' '}· <span className="font-medium text-gray-600">{wf.delayDays > 0 ? `${wf.delayDays} día(s) después` : 'Inmediato'}</span>
+                  {' '}· <span className="font-medium text-gray-600">{formatDelay(wf.delayDays, wf.delayHours, wf.delayMinutes)}</span>
                   {' '}· <span className="font-medium text-gray-600">{wf.serviceTag ?? 'Todos los servicios'}</span>
                   {wf.template && <> · <span className="font-medium text-gray-600">{wf.template.name}</span></>}
                 </p>
@@ -315,10 +340,18 @@ export default function WorkflowsPage() {
           <p className="text-xs font-medium text-gray-500 mb-2">Pasos de la secuencia</p>
           <div className="space-y-2">
             {sequenceSteps.map((step, index) => (
-              <div key={index} className="grid md:grid-cols-[100px_1fr_auto] gap-3 items-end rounded-lg border border-gray-100 bg-gray-50/50 p-3">
+              <div key={index} className="grid md:grid-cols-[90px_90px_90px_1fr_auto] gap-3 items-end rounded-lg border border-gray-100 bg-gray-50/50 p-3">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Día</label>
+                  <label className="block text-xs text-gray-500 mb-1">Días</label>
                   <input type="number" min="0" value={step.delayDays} onChange={e => updateSequenceStep(index, { delayDays: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Horas</label>
+                  <input type="number" min="0" value={step.delayHours} onChange={e => updateSequenceStep(index, { delayHours: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Min</label>
+                  <input type="number" min="0" value={step.delayMinutes} onChange={e => updateSequenceStep(index, { delayMinutes: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Plantilla del paso {index + 1}</label>

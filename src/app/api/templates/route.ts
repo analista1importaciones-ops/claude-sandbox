@@ -14,6 +14,14 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
-  const t = await prisma.whatsAppTemplate.create({ data: body })
+  const t = await prisma.whatsAppTemplate.create({
+    data: {
+      name: body.name,
+      body: body.body,
+      mediaUrl: body.mediaUrl || null,
+      mediaType: body.mediaType || null,
+      mediaName: body.mediaName || null,
+    },
+  })
   return NextResponse.json(t)
 }

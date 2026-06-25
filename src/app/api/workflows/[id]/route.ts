@@ -7,7 +7,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
-  const wf = await prisma.workflow.update({ where: { id: params.id }, data: body, include: { template: true } })
+  const data = {
+    ...(body.name !== undefined ? { name: body.name } : {}),
+    ...(body.trigger !== undefined ? { trigger: body.trigger } : {}),
+    ...(body.stage !== undefined ? { stage: body.stage || null } : {}),
+    ...(body.serviceTag !== undefined ? {
+      serviceTag: !body.serviceTag || ['Todos', 'Todos los servicios'].includes(body.serviceTag) ? null : body.serviceTag,
+    } : {}),
+    ...(body.delayDays !== undefined ? { delayDays: Number(body.delayDays || 0) } : {}),
+    ...(body.delayHours !== undefined ? { delayHours: Number(body.delayHours || 0) } : {}),
+    ...(body.delayMinutes !== undefined ? { delayMinutes: Number(body.delayMinutes || 0) } : {}),
+    ...(body.templateId !== undefined ? { templateId: body.templateId || null } : {}),
+    ...(body.active !== undefined ? { active: body.active } : {}),
+  }
+  const wf = await prisma.workflow.update({ where: { id: params.id }, data, include: { template: true } })
   return NextResponse.json(wf)
 }
 
