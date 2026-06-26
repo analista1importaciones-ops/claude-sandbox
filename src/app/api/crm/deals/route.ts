@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ensureDefaultFunnels, legacyStageForFunnelStage } from '@/lib/funnels'
+import { queueOrSendDealStageWorkflow } from '@/lib/workflows'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -44,24 +45,71 @@ export async function POST(req: NextRequest) {
   const funnelStage = body.funnelStageId
     ? await prisma.funnelStage.findUnique({ where: { id: body.funnelStageId } })
     : null
+  const previous = funnelStage
+    ? await prisma.deal.findFirst({
+      where: { contactId: body.contactId, funnelId: funnelStage.funnelId },
+      include: { contact: true, funnelStage: true },
+      orderBy: { updatedAt: 'desc' },
+    })
+    : null
 
-  const deal = await prisma.deal.create({
-    data: {
-      contactId: body.contactId,
-      stage: funnelStage ? legacyStageForFunnelStage(funnelStage.name) as never : body.stage ?? 'PAUTA',
-      funnelId: funnelStage?.funnelId ?? body.funnelId ?? null,
-      funnelStageId: funnelStage?.id ?? null,
-      estimatedValue: body.estimatedValue ? Number(body.estimatedValue) : null,
-      currency: body.currency ?? 'USD',
-      notes: body.notes ?? null,
-    },
-    include: {
-      contact: true,
-      quotation: { select: { number: true } },
-      funnel: { select: { id: true, name: true } },
-      funnelStage: { select: { id: true, name: true, order: true, color: true } },
-    },
-  })
+  const data = {
+    stage: funnelStage ? legacyStageForFunnelStage(funnelStage.name) as never : body.stage ?? 'PAUTA',
+    funnelId: funnelStage?.funnelId ?? body.funnelId ?? null,
+    funnelStageId: funnelStage?.id ?? null,
+    estimatedValue: body.estimatedValue ? Number(body.estimatedValue) : previous?.estimatedValue ?? null,
+    currency: body.currency ?? previous?.currency ?? 'USD',
+    notes: body.notes ?? previous?.notes ?? null,
+  }
 
-  return NextResponse.json(deal, { status: 201 })
+  const deal = previous
+    ? await prisma.deal.update({
+      where: { id: previous.id },
+      data,
+      include: {
+        contact: true,
+        quotation: { select: { number: true } },
+        funnel: { select: { id: true, name: true } },
+        funnelStage: { select: { id: true, name: true, order: true, color: true } },
+      },
+    })
+    : await prisma.deal.create({
+      data: {
+        contactId: body.contactId,
+        ...data,
+      },
+      include: {
+        contact: true,
+        quotation: { select: { number: true } },
+        funnel: { select: { id: true, name: true } },
+        funnelStage: { select: { id: true, name: true, order: true, color: true } },
+      },
+    })
+
+  const funnelStageChanged = Boolean(funnelStage && previous?.funnelStageId !== funnelStage.id)
+  if (funnelStage && (!previous || funnelStageChanged) && deal.contact) {
+    const workflows = await prisma.workflow.findMany({
+      where: {
+        active: true,
+        trigger: 'DEAL_STAGE_CHANGED',
+        OR: [
+          { funnelStageId: funnelStage.id },
+          { funnelId: funnelStage.funnelId, funnelStageId: null },
+          { stage: deal.stage },
+        ],
+      },
+      include: { template: true },
+    })
+    const seen = new Set<string>()
+    for (const wf of workflows) {
+      if (deal.funnelId && wf.funnelId && wf.funnelId !== deal.funnelId) continue
+      const key = [wf.stage, wf.funnelId || '', wf.funnelStageId || '', wf.serviceTag || 'todos', wf.templateId || '', wf.delayDays, wf.delayHours, wf.delayMinutes].join('|')
+      if (seen.has(key)) continue
+      seen.add(key)
+      await queueOrSendDealStageWorkflow(wf, deal.contact, deal.id, deal.funnelStage?.name || deal.stage)
+        .catch(e => console.error('[Workflow] send failed', e))
+    }
+  }
+
+  return NextResponse.json(deal, { status: previous ? 200 : 201 })
 }

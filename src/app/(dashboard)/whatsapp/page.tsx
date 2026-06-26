@@ -9,22 +9,28 @@ interface Contact { id: string; name: string; company: string | null; phone: str
 interface QuickReply { id: string; title: string; body: string }
 interface InternalNote { id: string; content: string; createdAt: string }
 interface ScheduledMsg { id: string; body: string; sendAt: string; sent: boolean }
+interface FunnelStage { id: string; name: string; order: number; color: string }
+interface Funnel { id: string; name: string; stages: FunnelStage[] }
 
-const TAGS = [
-  'Cursos',
-  'Carga',
-  'Asesorías',
-  'Inspecciones',
-  'Búsqueda de proveedores',
-  'Courier',
-  'Nacionalización',
-  'Transporte pesado',
-  'Seguro de carga',
-  'Cliente antiguo',
-  'Prospecto',
-  'WhatsApp',
-]
-const SERVICE_LABELS = ['COURIER', 'NACIONALIZACION', 'TRANSPORTE_PESADO', 'SEGURO_CARGA', 'OTRO']
+const FUNNEL_SERVICE_MAP: Record<string, { serviceLabel: string; tag: string }> = {
+  CARGAS: { serviceLabel: 'CARGA', tag: 'Carga' },
+  CARGA: { serviceLabel: 'CARGA', tag: 'Carga' },
+  CURSOS: { serviceLabel: 'CURSOS', tag: 'Cursos' },
+  CURSO: { serviceLabel: 'CURSOS', tag: 'Cursos' },
+  ASESORIA: { serviceLabel: 'ASESORIAS', tag: 'Asesorías' },
+  ASESORIAS: { serviceLabel: 'ASESORIAS', tag: 'Asesorías' },
+  'CLIENTES ANTIGUOS': { serviceLabel: 'OTRO', tag: 'Cliente antiguo' },
+}
+
+function normalizeText(value: string | null | undefined) {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
+}
 
 function getPhoneFromJid(jid: string) {
   if (!jid.endsWith('@s.whatsapp.net')) return null
@@ -75,6 +81,9 @@ export default function WhatsAppPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [linkedContact, setLinkedContact] = useState<Contact | null>(null)
   const [contactSearch, setContactSearch] = useState('')
+  const [funnels, setFunnels] = useState<Funnel[]>([])
+  const [selectedFunnelId, setSelectedFunnelId] = useState('')
+  const [assigningPipeline, setAssigningPipeline] = useState(false)
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([])
   const [showQR, setShowQR] = useState(false)
   const [newQRTitle, setNewQRTitle] = useState('')
@@ -137,6 +146,15 @@ export default function WhatsAppPage() {
   async function loadContacts() {
     const res = await fetch('/api/contacts?limit=200')
     if (res.ok) { const d = await res.json(); setContacts(d.contacts ?? d) }
+  }
+  async function loadFunnels() {
+    const res = await fetch('/api/crm/funnels')
+    if (!res.ok) return
+    const data = await res.json()
+    const rows = Array.isArray(data) ? data : data.funnels
+    if (!Array.isArray(rows)) return
+    setFunnels(rows)
+    setSelectedFunnelId(current => current || rows[0]?.id || '')
   }
   async function loadQuickReplies() {
     const res = await fetch('/api/quick-replies')
@@ -201,6 +219,8 @@ export default function WhatsAppPage() {
   function openContactEdit(c?: Contact | null) {
     const conv = conversations.find(x => x.remoteJid === selectedJid)
     const phone = normalizePhone(c?.phone ?? getPhoneFromConversation(conv, selectedJid)) ?? ''
+    const matchedFunnel = getFunnelForContact(c ?? null)
+    if (matchedFunnel) setSelectedFunnelId(matchedFunnel.id)
     if (c) {
       setContactForm({ name: c.name, phone: c.phone ?? phone, email: c.email ?? '', company: c.company ?? '', waName: c.waName ?? conv?.waName ?? '', tags: c.tags ?? [], serviceLabel: c.serviceLabel ?? 'OTRO' })
     } else {
@@ -224,6 +244,94 @@ export default function WhatsAppPage() {
       loadConversations()
     } finally {
       setSavingContact(false)
+    }
+  }
+
+  function getFunnelService(funnelName: string | null | undefined) {
+    return FUNNEL_SERVICE_MAP[normalizeText(funnelName)] ?? { serviceLabel: 'OTRO', tag: funnelName?.trim() || 'WhatsApp' }
+  }
+
+  function tagsForFunnel(funnelName: string, currentTags: string[] = []) {
+    const service = getFunnelService(funnelName)
+    const keep = currentTags.filter(tag => {
+      const normalized = normalizeText(tag)
+      return normalized !== 'WHATSAPP' && !Object.values(FUNNEL_SERVICE_MAP).some(item => normalizeText(item.tag) === normalized)
+    })
+    return [...keep, service.tag, 'WhatsApp']
+  }
+
+  function getFunnelForContact(contact: Contact | null) {
+    if (!contact || funnels.length === 0) return null
+    const values = [contact.serviceLabel, ...(contact.tags ?? [])].map(normalizeText)
+    return funnels.find(funnel => {
+      const service = getFunnelService(funnel.name)
+      return values.includes(normalizeText(service.serviceLabel)) || values.includes(normalizeText(service.tag)) || values.includes(normalizeText(funnel.name))
+    }) ?? null
+  }
+
+  function applyFunnelToForm(funnelId: string) {
+    setSelectedFunnelId(funnelId)
+    const funnel = funnels.find(item => item.id === funnelId)
+    if (!funnel) return
+    const service = getFunnelService(funnel.name)
+    setContactForm(form => ({
+      ...form,
+      serviceLabel: service.serviceLabel,
+      tags: tagsForFunnel(funnel.name, form.tags),
+    }))
+  }
+
+  async function assignContactToPipeline() {
+    if (!linkedContact || !selectedFunnelId) return
+    const funnel = funnels.find(item => item.id === selectedFunnelId)
+    const firstStage = funnel?.stages?.slice().sort((a, b) => a.order - b.order)[0]
+    if (!funnel || !firstStage) {
+      alert('Ese embudo no tiene etapas configuradas.')
+      return
+    }
+
+    setAssigningPipeline(true)
+    try {
+      const service = getFunnelService(funnel.name)
+      const updatedTags = tagsForFunnel(funnel.name, linkedContact.tags)
+      const updateRes = await fetch(`/api/contacts/${linkedContact.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: linkedContact.name,
+          phone: linkedContact.phone,
+          email: linkedContact.email,
+          company: linkedContact.company,
+          waName: linkedContact.waName,
+          tags: updatedTags,
+          serviceLabel: service.serviceLabel,
+          remoteJid: selectedJid,
+        }),
+      })
+      if (!updateRes.ok) throw new Error('No se pudo actualizar el contacto.')
+      const updatedContact = await updateRes.json()
+      setLinkedContact(updatedContact)
+
+      const dealRes = await fetch('/api/crm/deals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contactId: linkedContact.id,
+          funnelStageId: firstStage.id,
+          notes: `Asignado desde WhatsApp al embudo ${funnel.name}`,
+        }),
+      })
+      if (!dealRes.ok) {
+        const data = await dealRes.json().catch(() => null)
+        throw new Error(data?.error || 'No se pudo asignar al pipeline.')
+      }
+      alert(`Contacto asignado a ${funnel.name} / ${firstStage.name}.`)
+      loadContacts()
+      loadConversations()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'No se pudo asignar al pipeline.')
+    } finally {
+      setAssigningPipeline(false)
     }
   }
 
@@ -282,10 +390,6 @@ export default function WhatsAppPage() {
     setRecording(false); setRecSeconds(0)
   }
 
-  function toggleTag(tag: string) {
-    setContactForm(f => ({ ...f, tags: f.tags.includes(tag) ? f.tags.filter(t => t !== tag) : [...f.tags, tag] }))
-  }
-
   async function saveNote() {
     if (!newNote.trim() || !selectedJid) return
     await fetch('/api/whatsapp/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remoteJid: selectedJid, content: newNote, contactId: linkedContact?.id }) })
@@ -311,7 +415,7 @@ export default function WhatsAppPage() {
   }
 
   useEffect(() => {
-    pollStatus(); loadConversations(); loadContacts(); loadQuickReplies()
+    pollStatus(); loadConversations(); loadContacts(); loadFunnels(); loadQuickReplies()
     const si = setInterval(pollStatus, 5000)
     const sc = setInterval(loadConversations, 5000)
     return () => { clearInterval(si); clearInterval(sc) }
@@ -324,7 +428,10 @@ export default function WhatsAppPage() {
       const conv = conversations.find(c => c.remoteJid === selectedJid)
       if (conv?.contact) {
         const full = contacts.find(c => c.id === conv.contact!.id)
-        setLinkedContact(full ?? { id: conv.contact.id, name: conv.contact.name, company: null, phone: null, email: null, waName: conv.waName, tags: [], serviceLabel: 'OTRO' })
+        const contact = full ?? { id: conv.contact.id, name: conv.contact.name, company: null, phone: null, email: null, waName: conv.waName, tags: [], serviceLabel: 'OTRO' }
+        setLinkedContact(contact)
+        const matchedFunnel = getFunnelForContact(contact)
+        if (matchedFunnel) setSelectedFunnelId(matchedFunnel.id)
       } else {
         setLinkedContact(null)
       }
@@ -344,6 +451,8 @@ export default function WhatsAppPage() {
   const selectedConv = safeConversations.find(c => c.remoteJid === selectedJid)
   const selectedPhone = normalizePhone(linkedContact?.phone ?? getPhoneFromConversation(selectedConv, selectedJid))
   const selectedJidLabel = selectedJid ? getJidLabel(selectedJid) : ''
+  const selectedFunnel = funnels.find(funnel => funnel.id === selectedFunnelId) ?? null
+  const selectedFunnelFirstStage = selectedFunnel?.stages?.slice().sort((a, b) => a.order - b.order)[0] ?? null
   const filteredConversations = safeConversations.filter(c => {
     if (!convSearch.trim()) return true
     const name = (c.contact?.name ?? c.waName ?? c.remoteJid).toLowerCase()
@@ -553,19 +662,15 @@ export default function WhatsAppPage() {
                 <input type="text" value={contactForm.phone} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))} placeholder="Teléfono" className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400" />
                 <input type="email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} placeholder="Email" className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400" />
                 <input type="text" value={contactForm.company} onChange={e => setContactForm(f => ({ ...f, company: e.target.value }))} placeholder="Empresa" className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400" />
-                <select value={contactForm.serviceLabel} onChange={e => setContactForm(f => ({ ...f, serviceLabel: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400">
-                  {SERVICE_LABELS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                </select>
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Etiquetas</p>
-                  <div className="flex flex-wrap gap-1">
-                    {TAGS.map(tag => (
-                      <button key={tag} onClick={() => toggleTag(tag)}
-                        className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${contactForm.tags.includes(tag) ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'}`}>
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Embudo del cliente</label>
+                  <select value={selectedFunnelId} onChange={e => applyFunnelToForm(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400">
+                    <option value="">Seleccionar embudo</option>
+                    {funnels.map(funnel => <option key={funnel.id} value={funnel.id}>{funnel.name}</option>)}
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Esto define la etiqueta del servicio y el pipeline que activara los seguimientos.
+                  </p>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button onClick={() => setEditingContact(false)} className="flex-1 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancelar</button>
@@ -587,12 +692,25 @@ export default function WhatsAppPage() {
                   {!selectedPhone && <p className="text-xs text-amber-600">Completa el teléfono real del cliente.</p>}
                 </div>
                 {linkedContact.waName && <p className="text-xs text-gray-400">WA: {linkedContact.waName}</p>}
-                {linkedContact.tags?.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {linkedContact.tags.map(t => <span key={t} className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">{t}</span>)}
-                  </div>
-                )}
-                <p className="text-xs text-blue-500 mt-1">{linkedContact.serviceLabel?.replace('_', ' ')}</p>
+                <div className="mt-3 rounded-md bg-white/80 border border-green-100 px-2 py-2">
+                  <label className="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">Embudo / pipeline</label>
+                  <select value={selectedFunnelId} onChange={e => setSelectedFunnelId(e.target.value)} className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400">
+                    <option value="">Seleccionar embudo</option>
+                    {funnels.map(funnel => <option key={funnel.id} value={funnel.id}>{funnel.name}</option>)}
+                  </select>
+                  <button
+                    onClick={assignContactToPipeline}
+                    disabled={assigningPipeline || !selectedFunnelId || !selectedFunnelFirstStage}
+                    className="mt-2 w-full px-3 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+                  >
+                    {assigningPipeline ? 'Asignando...' : `Asignar a ${selectedFunnelFirstStage?.name ?? 'pipeline'}`}
+                  </button>
+                  {selectedFunnel && (
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Se creara la oportunidad en {selectedFunnel.name}.
+                    </p>
+                  )}
+                </div>
                 <button onClick={() => setLinkedContact(null)} className="text-xs text-red-400 hover:text-red-600 mt-1">Desvincular</button>
               </div>
             ) : (
@@ -605,7 +723,7 @@ export default function WhatsAppPage() {
                 <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="Buscar contacto..." className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400 mb-2" />
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {filteredContacts.slice(0, 10).map(c => (
-                    <button key={c.id} onClick={() => { setLinkedContact(c); setContactSearch('') }} className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">{c.name}{c.company ? ' - ' + c.company : ''}</button>
+                    <button key={c.id} onClick={() => { setLinkedContact(c); setSelectedFunnelId(getFunnelForContact(c)?.id ?? selectedFunnelId); setContactSearch('') }} className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">{c.name}{c.company ? ' - ' + c.company : ''}</button>
                   ))}
                 </div>
               </div>
