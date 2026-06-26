@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import QuotationActions from './QuotationActions'
+import QuotationWhatsAppPanel from './QuotationWhatsAppPanel'
 import QuotationStatusBadge from '@/components/QuotationStatusBadge'
 import QuotationTimeline from '@/components/QuotationTimeline'
 
@@ -140,6 +141,14 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
       )}
 
       <div className="text-xs text-gray-400 pb-8 text-center">Generado por GTL Rate Manager · {q.createdBy.name}</div>
+      <QuotationWhatsAppPanel
+        quotationId={q.id}
+        number={q.number}
+        customerName={q.customerName}
+        customerPhone={q.customerPhone}
+        grandTotal={Number(q.grandTotal)}
+        currency={q.currency}
+      />
     </div>
   )
 }
