@@ -8,9 +8,9 @@ import { Boom } from '@hapi/boom'
 import path from 'path'
 import fs from 'fs'
 import { prisma } from './prisma'
+import { ensureWAMediaDir, getWAMediaSource } from './wa-media'
 
 const AUTH_DIR = process.env.WA_AUTH_DIR || path.join(process.cwd(), '.wa-auth')
-const MEDIA_DIR = path.join(process.cwd(), 'public', 'wa-media')
 
 type WaSocket = ReturnType<typeof makeWASocket>
 type WaStatus = 'disconnected' | 'connecting' | 'connected'
@@ -83,19 +83,13 @@ function normalizeRecipient(to: string) {
   return `${digits}@s.whatsapp.net`
 }
 
-function mediaSource(mediaUrl: string) {
-  if (/^https?:\/\//i.test(mediaUrl)) return { url: mediaUrl }
-  const clean = mediaUrl.startsWith('/') ? mediaUrl.slice(1) : mediaUrl
-  return { url: path.join(process.cwd(), 'public', clean) }
-}
-
 async function saveMedia(msg: any, msgType: string, messageId: string): Promise<{ mediaUrl: string; mediaType: string } | null> {
   try {
-    ensureDir(MEDIA_DIR)
+    const mediaDir = ensureWAMediaDir()
     const buffer = await downloadMediaMessage(msg, 'buffer', {}) as Buffer
     const ext = getMediaExt(msgType)
     const filename = `${messageId}.${ext}`
-    fs.writeFileSync(path.join(MEDIA_DIR, filename), buffer)
+    fs.writeFileSync(path.join(mediaDir, filename), buffer)
     return { mediaUrl: `/wa-media/${filename}`, mediaType: getMediaType(msgType) }
   } catch (e) {
     console.error('[WhatsApp] media download error:', e)
@@ -125,7 +119,7 @@ export async function startWhatsApp(options: { manual?: boolean } = {}) {
 
     try {
       ensureDir(AUTH_DIR)
-      ensureDir(MEDIA_DIR)
+      ensureWAMediaDir()
       const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR)
       const versionResult = await fetchLatestBaileysVersion().catch(() => ({
         version: [2, 3000, 1015901307] as [number, number, number],
@@ -282,7 +276,7 @@ export async function sendWAMessage(to: string, body: string) {
 export async function sendWAMediaMessage(to: string, body: string, mediaUrl: string, mediaType: string | null | undefined, mediaName?: string | null) {
   const sock = await ensureWhatsAppReady()
   const jid = normalizeRecipient(to)
-  const source = mediaSource(mediaUrl)
+  const source = getWAMediaSource(mediaUrl)
   const caption = body || undefined
   const kind = mediaType || 'document'
 

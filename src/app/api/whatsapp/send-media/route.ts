@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ensureWhatsAppReady } from '@/lib/whatsapp'
+import { ensureWAMediaDir } from '@/lib/wa-media'
 import path from 'path'
 import fs from 'fs'
 
@@ -72,11 +73,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Save media to disk
-  const MEDIA_DIR = path.join(process.cwd(), 'public', 'wa-media')
-  if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true })
+  const mediaDir = ensureWAMediaDir()
   const ext = name.split('.').pop() || 'bin'
   const filename = `${sentMsg?.key?.id ?? Date.now()}.${ext}`
-  fs.writeFileSync(path.join(MEDIA_DIR, filename), bytes)
+  fs.writeFileSync(path.join(mediaDir, filename), bytes)
   const mediaUrl = `/wa-media/${filename}`
   const mediaType = sentAsDocument ? 'document' : mime.startsWith('image/') ? 'image' : mime.startsWith('audio/') ? 'audio' : mime.startsWith('video/') ? 'video' : 'document'
 

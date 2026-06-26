@@ -10,6 +10,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: '3000',
         WA_AUTH_DIR: '/var/lib/gtl-crm/wa-auth',
+        WA_MEDIA_DIR: '/var/lib/gtl-crm/wa-media',
       },
       max_memory_restart: '700M',
       autorestart: true,
