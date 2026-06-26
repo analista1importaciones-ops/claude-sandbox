@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ensureDefaultFunnels, legacyStageForFunnelStage } from '@/lib/funnels'
-import { queueOrSendDealStageWorkflow } from '@/lib/workflows'
+import { findDealStageWorkflows, queueOrSendDealStageWorkflow } from '@/lib/workflows'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -88,17 +88,10 @@ export async function POST(req: NextRequest) {
 
   const funnelStageChanged = Boolean(funnelStage && previous?.funnelStageId !== funnelStage.id)
   if (funnelStage && (!previous || funnelStageChanged) && deal.contact) {
-    const workflows = await prisma.workflow.findMany({
-      where: {
-        active: true,
-        trigger: 'DEAL_STAGE_CHANGED',
-        OR: [
-          { funnelStageId: funnelStage.id },
-          { funnelId: funnelStage.funnelId, funnelStageId: null },
-          { stage: deal.stage },
-        ],
-      },
-      include: { template: true },
+    const workflows = await findDealStageWorkflows({
+      funnelStageId: funnelStage.id,
+      funnelId: funnelStage.funnelId,
+      stage: deal.stage,
     })
     const seen = new Set<string>()
     for (const wf of workflows) {

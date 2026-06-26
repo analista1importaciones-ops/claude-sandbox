@@ -21,6 +21,7 @@ type WorkflowWithTemplate = {
   serviceTag?: string | null
   funnelId?: string | null
   funnelStageId?: string | null
+  templateId?: string | null
   template: WorkflowTemplate
 }
 
@@ -35,6 +36,12 @@ type WorkflowContact = {
 
 type WorkflowContext = {
   dealId?: string | null
+  stage?: string | null
+}
+
+type DealStageWorkflowTarget = {
+  funnelStageId?: string | null
+  funnelId?: string | null
   stage?: string | null
 }
 
@@ -194,6 +201,36 @@ export async function queueOrSendWorkflowMessage(
 
 export async function queueOrSendDealStageWorkflow(workflow: WorkflowWithTemplate, contact: WorkflowContact, dealId: string, stage: string) {
   return queueOrSendWorkflowMessage(workflow, contact, { dealId, stage })
+}
+
+export async function findDealStageWorkflows(target: DealStageWorkflowTarget): Promise<WorkflowWithTemplate[]> {
+  const stage = target.stage || null
+  if (target.funnelStageId && target.funnelId) {
+    const workflows = await prisma.workflow.findMany({
+      where: {
+        active: true,
+        trigger: 'DEAL_STAGE_CHANGED',
+        OR: [
+          { funnelStageId: target.funnelStageId },
+          { funnelId: target.funnelId, funnelStageId: null },
+        ],
+      },
+      include: { template: true },
+    })
+    return workflows as WorkflowWithTemplate[]
+  }
+
+  const workflows = await prisma.workflow.findMany({
+    where: {
+      active: true,
+      trigger: 'DEAL_STAGE_CHANGED',
+      stage: stage as never,
+      funnelId: null,
+      funnelStageId: null,
+    },
+    include: { template: true },
+  })
+  return workflows as WorkflowWithTemplate[]
 }
 
 export async function runContactCreatedWorkflows(contact: WorkflowContact) {

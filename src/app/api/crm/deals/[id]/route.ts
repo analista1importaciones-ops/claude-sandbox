@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { queueOrSendDealStageWorkflow } from '@/lib/workflows'
+import { findDealStageWorkflows, queueOrSendDealStageWorkflow } from '@/lib/workflows'
 import { legacyStageForFunnelStage } from '@/lib/funnels'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -40,19 +40,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const stageChanged = Boolean(body.stage && previous?.stage !== body.stage)
   const funnelStageChanged = Boolean(nextFunnelStage && previous?.funnelStageId !== nextFunnelStage.id)
   if (stageChanged || funnelStageChanged) {
-    const workflows = await prisma.workflow.findMany({
-      where: {
-        active: true,
-        trigger: 'DEAL_STAGE_CHANGED',
-        OR: [
-          ...(nextFunnelStage ? [
-            { funnelStageId: nextFunnelStage.id },
-            { funnelId: nextFunnelStage.funnelId, funnelStageId: null },
-          ] : []),
-          { stage: deal.stage },
-        ],
-      },
-      include: { template: true },
+    const workflows = await findDealStageWorkflows({
+      funnelStageId: nextFunnelStage?.id ?? deal.funnelStageId,
+      funnelId: nextFunnelStage?.funnelId ?? deal.funnelId,
+      stage: deal.stage,
     })
     const seen = new Set<string>()
     for (const wf of workflows) {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { queueOrSendDealStageWorkflow } from '@/lib/workflows'
+import { findDealStageWorkflows, queueOrSendDealStageWorkflow } from '@/lib/workflows'
 import { getFunnelStageByName, legacyStageForFunnelStage } from '@/lib/funnels'
 
 async function generateNumber(): Promise<string> {
@@ -111,32 +111,31 @@ export async function POST(req: NextRequest) {
   })
 
   const quotedStage = await getFunnelStageByName(['CARGAS', 'CARGA'], ['COTIZACION ENVIADA', 'COTIZADO'])
-  const deal = await prisma.deal.create({
-    data: {
-      contactId: crmContact.id,
-      stage: quotedStage ? legacyStageForFunnelStage(quotedStage.name) as never : 'COTIZADO',
-      funnelId: quotedStage?.funnelId ?? null,
-      funnelStageId: quotedStage?.id ?? null,
-      estimatedValue: parseFloat(body.grandTotal),
-      currency: body.currency || 'USD',
-      quotationId: quotation.id,
-      notes: `Cotización ${quotation.number}: ${body.originPort} → ${body.destinationPort}`,
-    },
-  })
+  const existingDeal = quotedStage
+    ? await prisma.deal.findFirst({
+      where: { contactId: crmContact.id, funnelId: quotedStage.funnelId },
+      orderBy: { updatedAt: 'desc' },
+    })
+    : null
+  const stage = quotedStage ? legacyStageForFunnelStage(quotedStage.name) : 'COTIZADO'
+  const dealData = {
+    contactId: crmContact.id,
+    stage: stage as never,
+    funnelId: quotedStage?.funnelId ?? null,
+    funnelStageId: quotedStage?.id ?? null,
+    estimatedValue: parseFloat(body.grandTotal),
+    currency: body.currency || 'USD',
+    quotationId: quotation.id,
+    notes: `Cotización ${quotation.number}: ${body.originPort} → ${body.destinationPort}`,
+  }
+  const deal = existingDeal
+    ? await prisma.deal.update({ where: { id: existingDeal.id }, data: dealData })
+    : await prisma.deal.create({ data: dealData })
 
-  const workflows = await prisma.workflow.findMany({
-    where: {
-      active: true,
-      trigger: 'DEAL_STAGE_CHANGED',
-      OR: [
-        ...(quotedStage ? [
-          { funnelStageId: quotedStage.id },
-          { funnelId: quotedStage.funnelId, funnelStageId: null },
-        ] : []),
-        { stage: 'COTIZADO' },
-      ],
-    },
-    include: { template: true },
+  const workflows = await findDealStageWorkflows({
+    funnelStageId: quotedStage?.id,
+    funnelId: quotedStage?.funnelId,
+    stage,
   })
   for (const wf of workflows) {
     await queueOrSendDealStageWorkflow(wf, crmContact, deal.id, quotedStage?.name ?? 'COTIZADO')
