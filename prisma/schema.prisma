@@ -310,6 +310,7 @@ enum ActivityType {
   EMAIL
   NOTA
   REUNION
+  TAREA
 }
 
 model Contact {
@@ -368,6 +369,8 @@ model Activity {
   id          String       @id @default(cuid())
   type        ActivityType @default(NOTA)
   text        String
+  dueAt       DateTime?
+  completedAt DateTime?
   contactId   String?
   contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
   dealId      String?
@@ -375,6 +378,9 @@ model Activity {
   createdById String
   createdBy   User         @relation(fields: [createdById], references: [id])
   createdAt   DateTime     @default(now())
+
+  @@index([contactId, dueAt])
+  @@index([completedAt])
 }
 
 // ─── Sprint 5 WhatsApp ───────────────────────────────────────────

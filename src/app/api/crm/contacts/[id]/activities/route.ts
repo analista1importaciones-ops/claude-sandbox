@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const activities = await prisma.activity.findMany({
     where: { contactId: params.id },
     include: { createdBy: { select: { id: true, name: true } } },
-    orderBy: { createdAt: 'desc' },
+    orderBy: [{ completedAt: 'asc' }, { dueAt: 'asc' }, { createdAt: 'desc' }],
   })
   return NextResponse.json(activities)
 }
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { type, text } = body
+  const { type, text, dueAt } = body
 
   if (!text) return NextResponse.json({ error: 'text required' }, { status: 400 })
 
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       contactId: params.id,
       type: type || 'NOTA',
       text,
+      dueAt: dueAt ? new Date(dueAt) : null,
       createdById: (session.user as { id: string }).id,
     },
     include: { createdBy: { select: { id: true, name: true } } },

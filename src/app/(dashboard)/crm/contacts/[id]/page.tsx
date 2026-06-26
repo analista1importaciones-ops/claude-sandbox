@@ -22,12 +22,27 @@ const STAGE_LABELS: Record<string, string> = {
 const ACTIVITY_LABELS: Record<string, string> = {
   LLAMADA: '📞 Llamada', WHATSAPP: '💬 WhatsApp',
   EMAIL: '✉️ Email', NOTA: '📝 Nota', REUNION: '🤝 Reunión',
+  TAREA: 'Tarea pendiente',
+}
+
+function getDueStatus(dueAt: string | null) {
+  if (!dueAt) return { label: 'Sin fecha límite', className: 'bg-gray-100 text-gray-600' }
+  const due = new Date(dueAt)
+  const now = new Date()
+  const endOfToday = new Date()
+  endOfToday.setHours(23, 59, 59, 999)
+
+  if (due < now) return { label: 'Vencida', className: 'bg-red-50 text-red-700 border border-red-200' }
+  if (due <= endOfToday) return { label: 'Para hoy', className: 'bg-orange-50 text-orange-700 border border-orange-200' }
+  return { label: 'Programada', className: 'bg-blue-50 text-blue-700 border border-blue-200' }
 }
 
 interface Activity {
   id: string
   type: string
   text: string
+  dueAt: string | null
+  completedAt: string | null
   createdAt: string
   createdBy: { name: string }
 }
@@ -93,6 +108,7 @@ export default function ContactDetailPage() {
   const [contact, setContact] = useState<Contact | null>(null)
   const [activityText, setActivityText] = useState('')
   const [activityType, setActivityType] = useState('NOTA')
+  const [activityDueAt, setActivityDueAt] = useState('')
   const [addingActivity, setAddingActivity] = useState(false)
   const [showDealForm, setShowDealForm] = useState(false)
   const [funnels, setFunnels] = useState<Funnel[]>([])
@@ -131,10 +147,24 @@ export default function ContactDetailPage() {
     await fetch(`/api/crm/contacts/${id}/activities`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: activityType, text: activityText }),
+      body: JSON.stringify({
+        type: activityType,
+        text: activityText,
+        dueAt: activityType === 'TAREA' && activityDueAt ? new Date(activityDueAt).toISOString() : null,
+      }),
     })
     setActivityText('')
+    setActivityDueAt('')
     setAddingActivity(false)
+    load()
+  }
+
+  async function toggleTask(activityId: string, completed: boolean) {
+    await fetch(`/api/crm/contacts/${id}/activities/${activityId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed }),
+    })
     load()
   }
 
@@ -181,6 +211,10 @@ export default function ContactDetailPage() {
   }
 
   if (!contact) return <div className="p-6 text-gray-400">Cargando...</div>
+
+  const pendingTasks = contact.activities.filter(a => a.type === 'TAREA' && !a.completedAt)
+  const completedTasks = contact.activities.filter(a => a.type === 'TAREA' && a.completedAt)
+  const overdueTasks = pendingTasks.filter(a => a.dueAt && new Date(a.dueAt) < new Date())
 
   return (
     <div className="p-6 max-w-4xl space-y-6">
@@ -413,6 +447,54 @@ export default function ContactDetailPage() {
         </div>
 
         {tab === 'actividad' && <div className="space-y-4">
+        <div className={`rounded-xl border shadow-sm p-4 ${overdueTasks.length > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'}`}>
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 className="font-semibold text-gray-800">Tareas del cliente</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {pendingTasks.length} pendiente{pendingTasks.length === 1 ? '' : 's'} · {completedTasks.length} completada{completedTasks.length === 1 ? '' : 's'}
+              </p>
+            </div>
+            {overdueTasks.length > 0 && (
+              <span className="px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+                {overdueTasks.length} vencida{overdueTasks.length === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
+
+          {pendingTasks.length === 0 ? (
+            <p className="text-sm text-gray-400">No hay tareas pendientes para este cliente.</p>
+          ) : (
+            <div className="space-y-2">
+              {pendingTasks.map(task => {
+                const due = getDueStatus(task.dueAt)
+                return (
+                  <div key={task.id} className="rounded-lg bg-white border border-gray-100 px-3 py-2 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-gray-800">{task.text}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${due.className}`}>{due.label}</span>
+                        {task.dueAt && (
+                          <span className="text-xs text-gray-500">
+                            {new Date(task.dueAt).toLocaleString('es-EC', { dateStyle: 'medium', timeStyle: 'short' })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleTask(task.id, true)}
+                      className="px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-medium hover:bg-green-100"
+                    >
+                      Completar
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
         <form onSubmit={submitActivity} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
           <div className="flex gap-3">
             <select
@@ -431,6 +513,15 @@ export default function ContactDetailPage() {
               rows={1}
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gtl-orange resize-none"
             />
+            {activityType === 'TAREA' && (
+              <input
+                type="datetime-local"
+                value={activityDueAt}
+                onChange={(e) => setActivityDueAt(e.target.value)}
+                className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gtl-orange"
+                aria-label="Fecha límite de la tarea"
+              />
+            )}
             <button
               type="submit"
               disabled={addingActivity || !activityText.trim()}
@@ -443,14 +534,35 @@ export default function ContactDetailPage() {
 
         <div className="space-y-3">
           {contact.activities.map((a) => (
-            <div key={a.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <div key={a.id} className={`bg-white rounded-xl border shadow-sm p-4 ${a.type === 'TAREA' && !a.completedAt ? 'border-orange-100' : 'border-gray-100'}`}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700">{ACTIVITY_LABELS[a.type]}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{ACTIVITY_LABELS[a.type]}</span>
+                  {a.type === 'TAREA' && (
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${a.completedAt ? 'bg-green-50 text-green-700 border border-green-200' : getDueStatus(a.dueAt).className}`}>
+                      {a.completedAt ? 'Completada' : getDueStatus(a.dueAt).label}
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-gray-400">
                   {new Date(a.createdAt).toLocaleString('es-GT')} · {a.createdBy.name}
                 </span>
               </div>
               <p className="text-sm text-gray-600">{a.text}</p>
+              {a.type === 'TAREA' && (
+                <div className="flex items-center justify-between gap-3 mt-3">
+                  <div className="text-xs text-gray-500">
+                    {a.dueAt ? `Vence: ${new Date(a.dueAt).toLocaleString('es-EC', { dateStyle: 'medium', timeStyle: 'short' })}` : 'Sin fecha límite'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleTask(a.id, !a.completedAt)}
+                    className="text-xs text-gtl-navy hover:underline"
+                  >
+                    {a.completedAt ? 'Reabrir tarea' : 'Marcar como completada'}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
           {contact.activities.length === 0 && (

@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       },
       activities: {
         include: { createdBy: { select: { id: true, name: true } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ completedAt: 'asc' }, { dueAt: 'asc' }, { createdAt: 'desc' }],
       },
       appointments: {
         orderBy: { startAt: 'asc' },

@@ -30,6 +30,9 @@ export default async function DashboardPage() {
     openDeals,
     followUpDeals,
     appointmentsToday,
+    pendingClientTasks,
+    dueClientTasks,
+    upcomingClientTasks,
     unreadConversations,
     pendingScheduledMessages,
     activeWorkflows,
@@ -43,6 +46,14 @@ export default async function DashboardPage() {
     prisma.deal.count({ where: { stage: { notIn: ['CERRADO_GANADO', 'PERDIDO'] } } }),
     prisma.deal.count({ where: { stage: 'SEGUIMIENTO' } }),
     prisma.appointment.count({ where: { startAt: { gte: startOfDay, lte: endOfDay } } }),
+    prisma.activity.count({ where: { type: 'TAREA', completedAt: null } }),
+    prisma.activity.count({ where: { type: 'TAREA', completedAt: null, dueAt: { lte: endOfDay } } }),
+    prisma.activity.findMany({
+      where: { type: 'TAREA', completedAt: null },
+      include: { contact: { select: { id: true, name: true, phone: true } } },
+      orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }],
+      take: 5,
+    }),
     prisma.waConversation.count({ where: { unreadCount: { gt: 0 } } }),
     prisma.scheduledMessage.count({ where: { sent: false, sendAt: { lte: now } } }),
     prisma.workflow.count({ where: { active: true } }),
@@ -70,6 +81,7 @@ export default async function DashboardPage() {
   const pendingCards = [
     { label: 'Chats sin leer', value: unreadConversations, href: '/whatsapp', tone: 'text-green-700 bg-green-50 border-green-200' },
     { label: 'Citas de hoy', value: appointmentsToday, href: '/appointments', tone: 'text-blue-700 bg-blue-50 border-blue-200' },
+    { label: 'Tareas por atender', value: dueClientTasks, href: '/crm', tone: 'text-red-700 bg-red-50 border-red-200' },
     { label: 'Mensajes pendientes', value: pendingScheduledMessages, href: '/workflows', tone: 'text-orange-700 bg-orange-50 border-orange-200' },
     { label: 'Deals en seguimiento', value: followUpDeals, href: '/crm/pipeline', tone: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
   ]
@@ -130,7 +142,7 @@ export default async function DashboardPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-700">Pendientes de hoy</h2>
-            <span className="text-xs text-gray-400">{activeWorkflows} workflows activos</span>
+            <span className="text-xs text-gray-400">{activeWorkflows} workflows activos · {pendingClientTasks} tareas abiertas</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {pendingCards.map(card => (
@@ -140,6 +152,26 @@ export default async function DashboardPage() {
               </Link>
             ))}
           </div>
+          {upcomingClientTasks.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="text-xs font-semibold text-gray-500 mb-2">Próximas tareas de clientes</div>
+              <div className="space-y-2">
+                {upcomingClientTasks.map(task => (
+                  <Link
+                    key={task.id}
+                    href={task.contactId ? `/crm/contacts/${task.contactId}` : '/crm'}
+                    className="block rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50"
+                  >
+                    <div className="text-sm text-gray-800 line-clamp-1">{task.text}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {task.contact?.name ?? 'Sin contacto'}
+                      {task.dueAt ? ` · ${task.dueAt.toLocaleString('es-EC', { dateStyle: 'short', timeStyle: 'short' })}` : ' · sin fecha'}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
