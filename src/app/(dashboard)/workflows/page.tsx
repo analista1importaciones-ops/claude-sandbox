@@ -26,7 +26,8 @@ const SERVICE_TAGS = [
 ]
 
 interface Template { id: string; name: string; body: string; mediaUrl?: string | null; mediaType?: string | null; mediaName?: string | null }
-interface Workflow { id: string; name: string; trigger: string; stage: string | null; serviceTag: string | null; delayDays: number; delayHours: number; delayMinutes: number; active: boolean; template: Template | null }
+interface Funnel { id: string; name: string; stages: { id: string; name: string }[] }
+interface Workflow { id: string; name: string; trigger: string; stage: string | null; serviceTag: string | null; funnelId: string | null; funnelStageId: string | null; delayDays: number; delayHours: number; delayMinutes: number; active: boolean; template: Template | null }
 interface SequenceStep { delayDays: string; delayHours: string; delayMinutes: string; templateId: string }
 
 type Tab = 'workflows' | 'secuencias' | 'plantillas'
@@ -45,12 +46,15 @@ export default function WorkflowsPage() {
 
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
+  const [funnels, setFunnels] = useState<Funnel[]>([])
   const [showWfForm, setShowWfForm] = useState(false)
   const [showTplForm, setShowTplForm] = useState(false)
   const [wfName, setWfName] = useState('')
   const [wfTrigger, setWfTrigger] = useState('DEAL_STAGE_CHANGED')
   const [wfStage, setWfStage] = useState('COTIZADO')
   const [wfServiceTag, setWfServiceTag] = useState('Todos')
+  const [wfFunnelId, setWfFunnelId] = useState('')
+  const [wfFunnelStageId, setWfFunnelStageId] = useState('')
   const [wfDelayDays, setWfDelayDays] = useState('0')
   const [wfDelayHours, setWfDelayHours] = useState('0')
   const [wfDelayMinutes, setWfDelayMinutes] = useState('0')
@@ -59,6 +63,8 @@ export default function WorkflowsPage() {
   const [sequenceTrigger, setSequenceTrigger] = useState('DEAL_STAGE_CHANGED')
   const [sequenceStage, setSequenceStage] = useState('COTIZADO')
   const [sequenceServiceTag, setSequenceServiceTag] = useState('Cursos')
+  const [sequenceFunnelId, setSequenceFunnelId] = useState('')
+  const [sequenceFunnelStageId, setSequenceFunnelStageId] = useState('')
   const [sequenceSteps, setSequenceSteps] = useState<SequenceStep[]>([
     { delayDays: '0', delayHours: '0', delayMinutes: '0', templateId: '' },
     { delayDays: '0', delayHours: '0', delayMinutes: '15', templateId: '' },
@@ -68,9 +74,16 @@ export default function WorkflowsPage() {
   const [tplBody, setTplBody] = useState('')
 
   const load = async () => {
-    const [wRes, tRes] = await Promise.all([fetch('/api/workflows'), fetch('/api/templates')])
+    const [wRes, tRes, fRes] = await Promise.all([fetch('/api/workflows'), fetch('/api/templates'), fetch('/api/crm/funnels')])
     setWorkflows(await wRes.json())
     setTemplates(await tRes.json())
+    const funnelData = await fRes.json()
+    setFunnels(funnelData)
+    const first = funnelData.find((funnel: Funnel) => funnel.name === 'CARGAS') ?? funnelData[0]
+    setWfFunnelId(current => current || first?.id || '')
+    setWfFunnelStageId(current => current || first?.stages[0]?.id || '')
+    setSequenceFunnelId(current => current || first?.id || '')
+    setSequenceFunnelStageId(current => current || first?.stages[0]?.id || '')
   }
 
   useEffect(() => { load() }, [])
@@ -85,6 +98,8 @@ export default function WorkflowsPage() {
         trigger: wfTrigger,
         stage: wfTrigger === 'DEAL_STAGE_CHANGED' ? wfStage : null,
         serviceTag: wfServiceTag === 'Todos' ? null : wfServiceTag,
+        funnelId: wfFunnelId || null,
+        funnelStageId: wfTrigger === 'DEAL_STAGE_CHANGED' ? wfFunnelStageId || null : null,
         delayDays: Number(wfDelayDays) || 0,
         delayHours: Number(wfDelayHours) || 0,
         delayMinutes: Number(wfDelayMinutes) || 0,
@@ -107,6 +122,8 @@ export default function WorkflowsPage() {
         trigger: sequenceTrigger,
         stage: sequenceTrigger === 'DEAL_STAGE_CHANGED' ? sequenceStage : null,
         serviceTag: sequenceServiceTag === 'Todos' ? null : sequenceServiceTag,
+        funnelId: sequenceFunnelId || null,
+        funnelStageId: sequenceTrigger === 'DEAL_STAGE_CHANGED' ? sequenceFunnelStageId || null : null,
         delayDays: Number(step.delayDays) || 0,
         delayHours: Number(step.delayHours) || 0,
         delayMinutes: Number(step.delayMinutes) || 0,
@@ -167,6 +184,9 @@ export default function WorkflowsPage() {
     { id: 'secuencias', label: 'Secuencias' },
     { id: 'plantillas', label: 'Plantillas', count: templates.length },
   ]
+
+  const wfFunnel = funnels.find(funnel => funnel.id === wfFunnelId)
+  const sequenceFunnel = funnels.find(funnel => funnel.id === sequenceFunnelId)
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -237,6 +257,25 @@ export default function WorkflowsPage() {
                     {SERVICE_TAGS.map(tag => <option key={tag} value={tag}>{tag}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Embudo</label>
+                  <select value={wfFunnelId} onChange={e => {
+                    const funnel = funnels.find(item => item.id === e.target.value)
+                    setWfFunnelId(e.target.value)
+                    setWfFunnelStageId(funnel?.stages[0]?.id ?? '')
+                  }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="">Sin embudo</option>
+                    {funnels.map(funnel => <option key={funnel.id} value={funnel.id}>{funnel.name}</option>)}
+                  </select>
+                </div>
+                {wfTrigger === 'DEAL_STAGE_CHANGED' && wfFunnel && (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Etapa del embudo</label>
+                    <select value={wfFunnelStageId} onChange={e => setWfFunnelStageId(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                      {wfFunnel.stages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Días</label>
@@ -284,6 +323,7 @@ export default function WorkflowsPage() {
                     : <>Deal → <span className="font-medium text-gray-600">{STAGES.find(s => s.value === wf.stage)?.label ?? wf.stage}</span></>}
                   {' '}· <span className="font-medium text-gray-600">{formatDelay(wf.delayDays, wf.delayHours, wf.delayMinutes)}</span>
                   {' '}· <span className="font-medium text-gray-600">{wf.serviceTag ?? 'Todos los servicios'}</span>
+                  {wf.funnelId && <> · <span className="font-medium text-gray-600">Embudo separado</span></>}
                   {wf.template && <> · <span className="font-medium text-gray-600">{wf.template.name}</span></>}
                 </p>
               </div>
@@ -320,6 +360,25 @@ export default function WorkflowsPage() {
                 {SERVICE_TAGS.map(tag => <option key={tag} value={tag}>{tag}</option>)}
               </select>
             </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Embudo</label>
+              <select value={sequenceFunnelId} onChange={e => {
+                const funnel = funnels.find(item => item.id === e.target.value)
+                setSequenceFunnelId(e.target.value)
+                setSequenceFunnelStageId(funnel?.stages[0]?.id ?? '')
+              }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                <option value="">Sin embudo</option>
+                {funnels.map(funnel => <option key={funnel.id} value={funnel.id}>{funnel.name}</option>)}
+              </select>
+            </div>
+            {sequenceTrigger === 'DEAL_STAGE_CHANGED' && sequenceFunnel && (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Etapa del embudo</label>
+                <select value={sequenceFunnelStageId} onChange={e => setSequenceFunnelStageId(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                  {sequenceFunnel.stages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-xs text-gray-500 mb-1">Se activa cuando</label>
               <select value={sequenceTrigger} onChange={e => setSequenceTrigger(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">

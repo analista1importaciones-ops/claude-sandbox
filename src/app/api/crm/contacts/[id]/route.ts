@@ -12,7 +12,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     include: {
       assignedTo: { select: { id: true, name: true } },
       deals: {
-        include: { quotation: { select: { id: true, number: true, grandTotal: true } } },
+        include: {
+          quotation: { select: { id: true, number: true, grandTotal: true } },
+          funnel: { select: { id: true, name: true } },
+          funnelStage: { select: { id: true, name: true, order: true, color: true } },
+        },
         orderBy: { createdAt: 'desc' },
       },
       activities: {
@@ -40,7 +44,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json()
   const contact = await prisma.contact.update({
     where: { id: params.id },
-    data: body,
+    data: {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.company !== undefined ? { company: body.company || null } : {}),
+      ...(body.email !== undefined ? { email: body.email || null } : {}),
+      ...(body.phone !== undefined ? { phone: body.phone || null } : {}),
+      ...(body.source !== undefined ? { source: body.source } : {}),
+      ...(body.serviceLabel !== undefined ? { serviceLabel: body.serviceLabel } : {}),
+      ...(body.assignedToId !== undefined ? { assignedToId: body.assignedToId || null } : {}),
+      ...(body.tags !== undefined ? { tags: body.tags || [] } : {}),
+    },
   })
   return NextResponse.json(contact)
 }

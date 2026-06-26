@@ -19,6 +19,8 @@ type WorkflowWithTemplate = {
   trigger?: string
   stage?: string | null
   serviceTag?: string | null
+  funnelId?: string | null
+  funnelStageId?: string | null
   template: WorkflowTemplate
 }
 
@@ -94,7 +96,9 @@ function executionKey(workflow: WorkflowWithTemplate, contact: WorkflowContact, 
   const trigger = workflow.trigger || 'UNKNOWN'
   const dealId = context.dealId || 'no-deal'
   const stage = context.stage || workflow.stage || 'no-stage'
-  return [trigger, workflowId, contact.id, dealId, stage].join(':')
+  const funnel = workflow.funnelId || 'no-funnel'
+  const funnelStage = workflow.funnelStageId || 'no-funnel-stage'
+  return [trigger, workflowId, contact.id, dealId, stage, funnel, funnelStage].join(':')
 }
 
 async function claimWorkflowExecution(workflow: WorkflowWithTemplate, contact: WorkflowContact, context: WorkflowContext) {

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { queueOrSendWorkflowMessage } from '@/lib/workflows'
+import { queueOrSendDealStageWorkflow } from '@/lib/workflows'
+import { getFunnelStageByName, legacyStageForFunnelStage } from '@/lib/funnels'
 
 async function generateNumber(): Promise<string> {
   const year = new Date().getFullYear()
@@ -109,10 +110,13 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  await prisma.deal.create({
+  const quotedStage = await getFunnelStageByName(['CARGAS', 'CARGA'], ['COTIZACION ENVIADA', 'COTIZADO'])
+  const deal = await prisma.deal.create({
     data: {
       contactId: crmContact.id,
-      stage: 'COTIZADO',
+      stage: quotedStage ? legacyStageForFunnelStage(quotedStage.name) as never : 'COTIZADO',
+      funnelId: quotedStage?.funnelId ?? null,
+      funnelStageId: quotedStage?.id ?? null,
       estimatedValue: parseFloat(body.grandTotal),
       currency: body.currency || 'USD',
       quotationId: quotation.id,
@@ -121,11 +125,22 @@ export async function POST(req: NextRequest) {
   })
 
   const workflows = await prisma.workflow.findMany({
-    where: { active: true, trigger: 'DEAL_STAGE_CHANGED', stage: 'COTIZADO' },
+    where: {
+      active: true,
+      trigger: 'DEAL_STAGE_CHANGED',
+      OR: [
+        ...(quotedStage ? [
+          { funnelStageId: quotedStage.id },
+          { funnelId: quotedStage.funnelId, funnelStageId: null },
+        ] : []),
+        { stage: 'COTIZADO' },
+      ],
+    },
     include: { template: true },
   })
   for (const wf of workflows) {
-    await queueOrSendWorkflowMessage(wf, crmContact).catch(e => console.error('[Quotation workflow] send failed', e))
+    await queueOrSendDealStageWorkflow(wf, crmContact, deal.id, quotedStage?.name ?? 'COTIZADO')
+      .catch(e => console.error('[Quotation workflow] send failed', e))
   }
 
   return NextResponse.json(quotation, { status: 201 })

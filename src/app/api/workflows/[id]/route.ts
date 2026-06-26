@@ -11,6 +11,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     ...(body.name !== undefined ? { name: body.name } : {}),
     ...(body.trigger !== undefined ? { trigger: body.trigger } : {}),
     ...(body.stage !== undefined ? { stage: body.stage || null } : {}),
+    ...(body.funnelId !== undefined ? { funnelId: body.funnelId || null } : {}),
+    ...(body.funnelStageId !== undefined ? { funnelStageId: body.funnelStageId || null } : {}),
     ...(body.serviceTag !== undefined ? {
       serviceTag: !body.serviceTag || ['Todos', 'Todos los servicios'].includes(body.serviceTag) ? null : body.serviceTag,
     } : {}),

@@ -21,6 +21,8 @@ export async function POST(req: NextRequest) {
       trigger: body.trigger,
       stage: body.stage || null,
       serviceTag,
+      funnelId: body.funnelId || null,
+      funnelStageId: body.funnelStageId || null,
       delayDays: Number(body.delayDays || 0),
       delayHours: Number(body.delayHours || 0),
       delayMinutes: Number(body.delayMinutes || 0),
