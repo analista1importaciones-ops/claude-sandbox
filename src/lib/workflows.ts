@@ -150,7 +150,11 @@ export async function queueOrSendWorkflowMessage(
   context: WorkflowContext = {}
 ) {
   if (!contact.phone || !workflow.template?.body) return { skipped: 'missing_phone_or_template' }
-  if (!workflowAppliesToContact(workflow.serviceTag, contact)) return { skipped: 'service_mismatch' }
+  // A funnel is already the service boundary. Requiring a second tag here made
+  // valid deals fail silently when the contact label did not match exactly.
+  if (!workflow.funnelId && !workflowAppliesToContact(workflow.serviceTag, contact)) {
+    return { skipped: 'service_mismatch' }
+  }
 
   const claimed = await claimWorkflowExecution(workflow, contact, context)
   if (!claimed) return { skipped: 'already_executed' }
@@ -162,41 +166,21 @@ export async function queueOrSendWorkflowMessage(
   const mediaType = workflow.template.mediaType || null
   const mediaName = workflow.template.mediaName || null
 
-  if (delayMinutes > 0) {
-    const sendAt = new Date(Date.now() + delayMinutes * 60 * 1000)
-    await prisma.scheduledMessage.create({
-      data: {
-        remoteJid: jid,
-        body: text,
-        mediaUrl,
-        mediaType,
-        mediaName,
-        sendAt,
-        contactId: contact.id,
-      },
-    })
-    await recordWorkflowStatus(workflow, contact, context, 'SCHEDULED')
-    return { scheduled: true, sendAt }
-  }
-
-  const sentJid = mediaUrl
-    ? await sendWAMediaMessage(jid, text, mediaUrl, mediaType, mediaName)
-    : await sendWAMessage(jid, text)
-
-  await prisma.whatsAppMessage.create({
+  const sendAt = new Date(Date.now() + delayMinutes * 60 * 1000)
+  await prisma.scheduledMessage.create({
     data: {
-      remoteJid: sentJid,
-      fromMe: true,
-      content: text,
-      messageId: `wf_${workflow.id || 'adhoc'}_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-      timestamp: new Date(),
+      remoteJid: jid,
+      body: text,
       contactId: contact.id,
       mediaUrl,
       mediaType,
+      mediaName,
+      sendAt,
     },
   })
-  await recordWorkflowStatus(workflow, contact, context, 'SENT')
-  return { sent: true }
+  await recordWorkflowStatus(workflow, contact, context, 'SCHEDULED')
+  ensureScheduledMessageRunner()
+  return { scheduled: true, sendAt }
 }
 
 export async function queueOrSendDealStageWorkflow(workflow: WorkflowWithTemplate, contact: WorkflowContact, dealId: string, stage: string) {
@@ -211,8 +195,10 @@ export async function findDealStageWorkflows(target: DealStageWorkflowTarget): P
         active: true,
         trigger: 'DEAL_STAGE_CHANGED',
         OR: [
-          { funnelStageId: target.funnelStageId },
-          { funnelId: target.funnelId, funnelStageId: null },
+          { funnelId: target.funnelId, funnelStageId: target.funnelStageId },
+          // Compatibility for old rules. They must still match the legacy
+          // stage; a funnel-only rule must never fire on every board column.
+          { funnelId: target.funnelId, funnelStageId: null, stage: stage as never },
         ],
       },
       include: { template: true },

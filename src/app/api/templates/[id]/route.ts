@@ -23,6 +23,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  await prisma.whatsAppTemplate.delete({ where: { id: params.id } })
+  await prisma.$transaction([
+    prisma.workflow.updateMany({ where: { templateId: params.id }, data: { templateId: null, active: false } }),
+    prisma.whatsAppTemplate.delete({ where: { id: params.id } }),
+  ])
   return NextResponse.json({ ok: true })
 }

@@ -2,7 +2,9 @@ import fs from 'fs'
 import path from 'path'
 
 export function getWAMediaDir() {
-  return process.env.WA_MEDIA_DIR || path.join(process.cwd(), 'public', 'wa-media')
+  if (process.env.WA_MEDIA_DIR) return process.env.WA_MEDIA_DIR
+  if (process.env.WA_AUTH_DIR) return path.join(path.dirname(process.env.WA_AUTH_DIR), 'wa-media')
+  return path.join(process.cwd(), 'public', 'wa-media')
 }
 
 export function ensureWAMediaDir() {

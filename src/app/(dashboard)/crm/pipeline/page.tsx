@@ -190,6 +190,19 @@ export default function PipelinePage() {
                           <span title="Actividades">Act {deal.contact._count.activities}</span>
                           <span title="Citas">Citas {deal.contact._count.appointments}</span>
                         </div>
+                        <div className="mt-3 md:hidden">
+                          <label className="block text-[10px] font-medium uppercase text-gray-400 mb-1">Mover a etapa</label>
+                          <select
+                            value={deal.funnelStageId ?? ''}
+                            onChange={(event) => {
+                              const destination = activeFunnel.stages.find(item => item.id === event.target.value)
+                              if (destination) moveToStage(deal.id, destination)
+                            }}
+                            className="w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs text-gray-700"
+                          >
+                            {activeFunnel.stages.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                          </select>
+                        </div>
                       </div>
                     ))}
                     {stageDeals.length === 0 && (

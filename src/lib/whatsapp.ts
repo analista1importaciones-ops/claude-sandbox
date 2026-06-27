@@ -286,7 +286,13 @@ export async function sendWAMediaMessage(to: string, body: string, mediaUrl: str
     } else if (kind === 'video') {
       await sock.sendMessage(jid, { video: source, caption })
     } else if (kind === 'audio') {
-      await sock.sendMessage(jid, { audio: source, mimetype: 'audio/ogg; codecs=opus', ptt: false })
+      const extension = path.extname(mediaName || mediaUrl).toLowerCase()
+      const mimetype = extension === '.mp3' ? 'audio/mpeg'
+        : extension === '.wav' ? 'audio/wav'
+          : extension === '.m4a' || extension === '.mp4' ? 'audio/mp4'
+            : extension === '.webm' ? 'audio/webm'
+              : 'audio/ogg; codecs=opus'
+      await sock.sendMessage(jid, { audio: source, mimetype, ptt: false })
       if (body) await sock.sendMessage(jid, { text: body })
     } else {
       await sock.sendMessage(jid, {

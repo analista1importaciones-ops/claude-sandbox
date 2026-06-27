@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 const STAGES = [
   { value: 'PAUTA', label: 'Pauta' },
@@ -27,7 +27,7 @@ const SERVICE_TAGS = [
 
 interface Template { id: string; name: string; body: string; mediaUrl?: string | null; mediaType?: string | null; mediaName?: string | null }
 interface Funnel { id: string; name: string; stages: { id: string; name: string }[] }
-interface Workflow { id: string; name: string; trigger: string; stage: string | null; serviceTag: string | null; funnelId: string | null; funnelStageId: string | null; delayDays: number; delayHours: number; delayMinutes: number; active: boolean; template: Template | null }
+interface Workflow { id: string; name: string; trigger: string; stage: string | null; serviceTag: string | null; funnelId: string | null; funnelStageId: string | null; delayDays: number; delayHours: number; delayMinutes: number; active: boolean; template: Template | null; funnel?: { name: string } | null; funnelStage?: { name: string } | null }
 interface SequenceStep { delayDays: string; delayHours: string; delayMinutes: string; templateId: string }
 
 type Tab = 'workflows' | 'secuencias' | 'plantillas'
@@ -39,6 +39,11 @@ function formatDelay(days = 0, hours = 0, minutes = 0) {
     minutes > 0 ? `${minutes}min` : '',
   ].filter(Boolean)
   return parts.length > 0 ? parts.join(' ') : 'Inmediato'
+}
+
+function sequenceNameOf(name: string) {
+  const match = name.match(/^(.*) · Paso (\d+)$/)
+  return match ? { name: match[1], step: Number(match[2]) } : null
 }
 
 export default function WorkflowsPage() {
@@ -61,7 +66,6 @@ export default function WorkflowsPage() {
   const [wfTemplateId, setWfTemplateId] = useState('')
   const [sequenceName, setSequenceName] = useState('')
   const [sequenceTrigger, setSequenceTrigger] = useState('DEAL_STAGE_CHANGED')
-  const [sequenceStage, setSequenceStage] = useState('COTIZADO')
   const [sequenceServiceTag, setSequenceServiceTag] = useState('Cursos')
   const [sequenceFunnelId, setSequenceFunnelId] = useState('')
   const [sequenceFunnelStageId, setSequenceFunnelStageId] = useState('')
@@ -72,6 +76,11 @@ export default function WorkflowsPage() {
   ])
   const [tplName, setTplName] = useState('')
   const [tplBody, setTplBody] = useState('')
+  const [tplMedia, setTplMedia] = useState<Pick<Template, 'mediaUrl' | 'mediaType' | 'mediaName'>>({})
+  const [tplFile, setTplFile] = useState<File | null>(null)
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState('')
 
   const load = async () => {
     const [wRes, tRes, fRes] = await Promise.all([fetch('/api/workflows'), fetch('/api/templates'), fetch('/api/crm/funnels')])
@@ -89,15 +98,19 @@ export default function WorkflowsPage() {
   useEffect(() => { load() }, [])
 
   const saveWorkflow = async () => {
-    if (!wfName || !wfTemplateId) return
-    await fetch('/api/workflows', {
+    if (!wfName || !wfTemplateId || (wfTrigger === 'DEAL_STAGE_CHANGED' && !wfFunnelStageId)) {
+      setNotice('Completa el nombre, la etapa del embudo y la plantilla.')
+      return
+    }
+    setSaving(true)
+    const response = await fetch('/api/workflows', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: wfName,
         trigger: wfTrigger,
-        stage: wfTrigger === 'DEAL_STAGE_CHANGED' ? wfStage : null,
-        serviceTag: wfServiceTag === 'Todos' ? null : wfServiceTag,
+        stage: wfTrigger === 'DEAL_STAGE_CHANGED' && !wfFunnelId ? wfStage : null,
+        serviceTag: wfFunnelId || wfServiceTag === 'Todos' ? null : wfServiceTag,
         funnelId: wfFunnelId || null,
         funnelStageId: wfTrigger === 'DEAL_STAGE_CHANGED' ? wfFunnelStageId || null : null,
         delayDays: Number(wfDelayDays) || 0,
@@ -107,21 +120,31 @@ export default function WorkflowsPage() {
         active: true,
       }),
     })
+    setSaving(false)
+    if (!response.ok) {
+      setNotice((await response.json()).error || 'No se pudo guardar el workflow.')
+      return
+    }
+    setNotice('Workflow guardado correctamente.')
     setWfName(''); setWfTrigger('DEAL_STAGE_CHANGED'); setWfStage('COTIZADO'); setWfServiceTag('Todos'); setWfDelayDays('0'); setWfDelayHours('0'); setWfDelayMinutes('0'); setWfTemplateId(''); setShowWfForm(false); load()
   }
 
   const saveSequence = async () => {
     const validSteps = sequenceSteps.filter(step => step.templateId)
-    if (!sequenceName || validSteps.length === 0) return
+    if (!sequenceName || validSteps.length === 0 || (sequenceTrigger === 'DEAL_STAGE_CHANGED' && !sequenceFunnelStageId)) {
+      setNotice('Completa el nombre, la etapa del embudo y al menos una plantilla.')
+      return
+    }
 
-    await Promise.all(validSteps.map((step, index) => fetch('/api/workflows', {
+    setSaving(true)
+    const responses = await Promise.all(validSteps.map((step, index) => fetch('/api/workflows', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: `${sequenceName} · Paso ${index + 1}`,
         trigger: sequenceTrigger,
-        stage: sequenceTrigger === 'DEAL_STAGE_CHANGED' ? sequenceStage : null,
-        serviceTag: sequenceServiceTag === 'Todos' ? null : sequenceServiceTag,
+        stage: null,
+        serviceTag: sequenceFunnelId || sequenceServiceTag === 'Todos' ? null : sequenceServiceTag,
         funnelId: sequenceFunnelId || null,
         funnelStageId: sequenceTrigger === 'DEAL_STAGE_CHANGED' ? sequenceFunnelStageId || null : null,
         delayDays: Number(step.delayDays) || 0,
@@ -131,27 +154,67 @@ export default function WorkflowsPage() {
         active: true,
       }),
     })))
+    setSaving(false)
+    if (responses.some(response => !response.ok)) {
+      setNotice('No se pudo guardar la secuencia completa. Revisa la etapa y las plantillas.')
+      load()
+      return
+    }
 
     setSequenceName('')
     setSequenceTrigger('DEAL_STAGE_CHANGED')
-    setSequenceStage('COTIZADO')
     setSequenceServiceTag('Cursos')
     setSequenceSteps([
       { delayDays: '0', delayHours: '0', delayMinutes: '0', templateId: '' },
       { delayDays: '0', delayHours: '0', delayMinutes: '15', templateId: '' },
       { delayDays: '1', delayHours: '0', delayMinutes: '0', templateId: '' },
     ])
+    setNotice('Secuencia guardada. Sus pasos quedan agrupados abajo.')
     load()
   }
 
   const saveTemplate = async () => {
     if (!tplName || !tplBody) return
-    await fetch('/api/templates', {
-      method: 'POST',
+    setSaving(true)
+    let media = tplMedia
+    if (tplFile) {
+      const form = new FormData()
+      form.append('file', tplFile)
+      const upload = await fetch('/api/templates/media', { method: 'POST', body: form })
+      if (!upload.ok) {
+        setSaving(false)
+        setNotice((await upload.json()).error || 'No se pudo subir el archivo.')
+        return
+      }
+      media = await upload.json()
+    }
+    const response = await fetch(editingTemplateId ? `/api/templates/${editingTemplateId}` : '/api/templates', {
+      method: editingTemplateId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: tplName, body: tplBody }),
+      body: JSON.stringify({ name: tplName, body: tplBody, ...media }),
     })
-    setTplName(''); setTplBody(''); setShowTplForm(false); load()
+    setSaving(false)
+    if (!response.ok) {
+      setNotice('No se pudo guardar la plantilla.')
+      return
+    }
+    closeTemplateForm()
+    setNotice('Plantilla guardada correctamente.')
+    load()
+  }
+
+  const closeTemplateForm = () => {
+    setTplName(''); setTplBody(''); setTplMedia({}); setTplFile(null); setEditingTemplateId(null); setShowTplForm(false)
+  }
+
+  const editTemplate = (template: Template) => {
+    setTplName(template.name)
+    setTplBody(template.body)
+    setTplMedia({ mediaUrl: template.mediaUrl, mediaType: template.mediaType, mediaName: template.mediaName })
+    setTplFile(null)
+    setEditingTemplateId(template.id)
+    setShowTplForm(true)
+    setActiveTab('plantillas')
   }
 
   const toggleWorkflow = async (wf: Workflow) => {
@@ -161,6 +224,16 @@ export default function WorkflowsPage() {
 
   const deleteWorkflow = async (id: string) => { await fetch(`/api/workflows/${id}`, { method: 'DELETE' }); load() }
   const deleteTemplate = async (id: string) => { await fetch(`/api/templates/${id}`, { method: 'DELETE' }); load() }
+  const toggleSequence = async (steps: Workflow[]) => {
+    const active = !steps.every(step => step.active)
+    await Promise.all(steps.map(step => fetch(`/api/workflows/${step.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active }) })))
+    load()
+  }
+  const deleteSequence = async (steps: Workflow[]) => {
+    if (!confirm('¿Eliminar toda la secuencia y sus pasos?')) return
+    await Promise.all(steps.map(step => fetch(`/api/workflows/${step.id}`, { method: 'DELETE' })))
+    load()
+  }
   const runPending = async () => {
     const res = await fetch('/api/scheduled-messages/run', { method: 'POST' })
     const data = await res.json()
@@ -180,31 +253,46 @@ export default function WorkflowsPage() {
   }
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: 'workflows', label: 'Workflows', count: workflows.length },
+    { id: 'workflows', label: 'Workflows', count: workflows.filter(workflow => !sequenceNameOf(workflow.name)).length },
     { id: 'secuencias', label: 'Secuencias' },
     { id: 'plantillas', label: 'Plantillas', count: templates.length },
   ]
 
   const wfFunnel = funnels.find(funnel => funnel.id === wfFunnelId)
   const sequenceFunnel = funnels.find(funnel => funnel.id === sequenceFunnelId)
+  const standaloneWorkflows = workflows.filter(workflow => !sequenceNameOf(workflow.name))
+  const sequences = useMemo(() => {
+    const groups = new Map<string, Workflow[]>()
+    workflows.forEach(workflow => {
+      const info = sequenceNameOf(workflow.name)
+      if (!info) return
+      const key = [info.name, workflow.funnelId || '', workflow.funnelStageId || '', workflow.trigger].join('|')
+      groups.set(key, [...(groups.get(key) || []), workflow])
+    })
+    return Array.from(groups.entries()).map(([key, steps]) => ({
+      key,
+      name: sequenceNameOf(steps[0].name)?.name || steps[0].name,
+      steps: steps.sort((a, b) => (sequenceNameOf(a.name)?.step || 0) - (sequenceNameOf(b.name)?.step || 0)),
+    }))
+  }, [workflows])
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-0 sm:p-3 md:p-6 max-w-5xl mx-auto">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Automatizaciones</h1>
         {activeTab === 'workflows' && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={runPending} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">Enviar pendientes</button>
             <button onClick={() => setShowWfForm(true)} className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600">+ Nuevo workflow</button>
           </div>
         )}
         {activeTab === 'plantillas' && (
-          <button onClick={() => setShowTplForm(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">+ Nueva plantilla</button>
+          <button onClick={() => { closeTemplateForm(); setShowTplForm(true) }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">+ Nueva plantilla</button>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200 mb-6">
+      <div className="flex gap-1 overflow-x-auto border-b border-gray-200 mb-4 sm:mb-6">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -225,13 +313,20 @@ export default function WorkflowsPage() {
         ))}
       </div>
 
+      {notice && (
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} aria-label="Cerrar aviso">×</button>
+        </div>
+      )}
+
       {/* TAB: Workflows */}
       {activeTab === 'workflows' && (
         <section className="space-y-4">
           {showWfForm && (
             <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
               <h3 className="font-medium text-gray-700">Nuevo workflow</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Nombre</label>
                   <input value={wfName} onChange={e => setWfName(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="Ej: Mensaje cotización enviada" />
@@ -243,7 +338,7 @@ export default function WorkflowsPage() {
                     <option value="CONTACT_CREATED">Contacto creado</option>
                   </select>
                 </div>
-                {wfTrigger === 'DEAL_STAGE_CHANGED' && (
+                {wfTrigger === 'DEAL_STAGE_CHANGED' && !wfFunnelId && (
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Cuando el deal pasa a</label>
                   <select value={wfStage} onChange={e => setWfStage(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
@@ -251,12 +346,12 @@ export default function WorkflowsPage() {
                   </select>
                 </div>
                 )}
-                <div>
+                {!wfFunnelId && <div>
                   <label className="block text-xs text-gray-500 mb-1">Servicio / etiqueta</label>
                   <select value={wfServiceTag} onChange={e => setWfServiceTag(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
                     {SERVICE_TAGS.map(tag => <option key={tag} value={tag}>{tag}</option>)}
                   </select>
-                </div>
+                </div>}
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Embudo</label>
                   <select value={wfFunnelId} onChange={e => {
@@ -303,27 +398,26 @@ export default function WorkflowsPage() {
               </div>
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setShowWfForm(false)} className="px-4 py-2 text-sm text-gray-500">Cancelar</button>
-                <button onClick={saveWorkflow} className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm">Guardar</button>
+                <button disabled={saving} onClick={saveWorkflow} className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm disabled:opacity-50">{saving ? 'Guardando...' : 'Guardar'}</button>
               </div>
             </div>
           )}
 
-          {workflows.length === 0 && (
+          {standaloneWorkflows.length === 0 && (
             <div className="bg-white border border-dashed border-gray-200 rounded-xl p-8 text-center">
               <p className="text-sm text-gray-400">No hay workflows configurados.</p>
             </div>
           )}
-          {workflows.map(wf => (
-            <div key={wf.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between">
+          {standaloneWorkflows.map(wf => (
+            <div key={wf.id} className="bg-white border border-gray-200 rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium text-gray-800">{wf.name}</p>
                 <p className="text-xs text-gray-400 mt-0.5">
                   {wf.trigger === 'CONTACT_CREATED'
                     ? <>Contacto creado</>
-                    : <>Deal → <span className="font-medium text-gray-600">{STAGES.find(s => s.value === wf.stage)?.label ?? wf.stage}</span></>}
+                    : <>Al entrar en <span className="font-medium text-gray-600">{wf.funnel?.name ? `${wf.funnel.name} / ${wf.funnelStage?.name || 'etapa'}` : STAGES.find(s => s.value === wf.stage)?.label ?? wf.stage}</span></>}
                   {' '}· <span className="font-medium text-gray-600">{formatDelay(wf.delayDays, wf.delayHours, wf.delayMinutes)}</span>
-                  {' '}· <span className="font-medium text-gray-600">{wf.serviceTag ?? 'Todos los servicios'}</span>
-                  {wf.funnelId && <> · <span className="font-medium text-gray-600">Embudo separado</span></>}
+                  {!wf.funnelId && <> · <span className="font-medium text-gray-600">{wf.serviceTag ?? 'Todos los servicios'}</span></>}
                   {wf.template && <> · <span className="font-medium text-gray-600">{wf.template.name}</span></>}
                 </p>
               </div>
@@ -340,13 +434,49 @@ export default function WorkflowsPage() {
 
       {/* TAB: Secuencias */}
       {activeTab === 'secuencias' && (
-        <section className="bg-white border border-gray-200 rounded-xl p-5">
-          <div className="flex items-start justify-between gap-4 mb-5">
+        <section className="space-y-4">
+          {sequences.length > 0 && (
+            <div className="space-y-3">
+              {sequences.map(sequence => {
+                const first = sequence.steps[0]
+                const enabled = sequence.steps.every(step => step.active)
+                return (
+                  <div key={sequence.key} className="rounded-lg border border-gray-200 bg-white p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-800">{sequence.name}</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {first.funnel?.name || first.serviceTag || 'Todos'} / {first.funnelStage?.name || STAGES.find(stage => stage.value === first.stage)?.label || 'Contacto creado'} · {sequence.steps.length} pasos
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => toggleSequence(sequence.steps)} className={`relative h-5 w-10 rounded-full ${enabled ? 'bg-green-500' : 'bg-gray-300'}`} aria-label={enabled ? 'Desactivar secuencia' : 'Activar secuencia'}>
+                          <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        </button>
+                        <button onClick={() => deleteSequence(sequence.steps)} className="text-sm text-gray-400 hover:text-red-500">Eliminar</button>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {sequence.steps.map((step, index) => (
+                        <div key={step.id} className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                          <span className="font-medium">Paso {index + 1}</span> · {formatDelay(step.delayDays, step.delayHours, step.delayMinutes)}<br />
+                          <span className="text-gray-400">{step.template?.name || 'Sin plantilla'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-5">
             <div>
               <h2 className="text-lg font-semibold text-gray-800">Secuencia por servicio</h2>
-              <p className="text-sm text-gray-500 mt-1">Crea varios pasos de seguimiento para una etiqueta de cliente. Cada paso programa su mensaje según los días configurados.</p>
+              <p className="text-sm text-gray-500 mt-1">Elige un embudo y la etapa que inicia el seguimiento. Los pasos se ejecutan una sola vez en los tiempos indicados.</p>
             </div>
-            <button onClick={saveSequence} className="px-4 py-2 bg-gtl-navy text-white rounded-lg text-sm font-medium hover:bg-gtl-navy-dark whitespace-nowrap">Crear secuencia</button>
+            <button disabled={saving} onClick={saveSequence} className="px-4 py-2 bg-gtl-navy text-white rounded-lg text-sm font-medium hover:bg-gtl-navy-dark whitespace-nowrap disabled:opacity-50">{saving ? 'Guardando...' : 'Crear secuencia'}</button>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
@@ -354,12 +484,12 @@ export default function WorkflowsPage() {
               <label className="block text-xs text-gray-500 mb-1">Nombre de la secuencia</label>
               <input value={sequenceName} onChange={e => setSequenceName(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="Ej: Remarketing cursos" />
             </div>
-            <div>
+            {!sequenceFunnelId && <div>
               <label className="block text-xs text-gray-500 mb-1">Servicio / etiqueta</label>
               <select value={sequenceServiceTag} onChange={e => setSequenceServiceTag(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
                 {SERVICE_TAGS.map(tag => <option key={tag} value={tag}>{tag}</option>)}
               </select>
-            </div>
+            </div>}
             <div>
               <label className="block text-xs text-gray-500 mb-1">Embudo</label>
               <select value={sequenceFunnelId} onChange={e => {
@@ -386,14 +516,6 @@ export default function WorkflowsPage() {
                 <option value="CONTACT_CREATED">Contacto creado</option>
               </select>
             </div>
-            {sequenceTrigger === 'DEAL_STAGE_CHANGED' && (
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Etapa</label>
-                <select value={sequenceStage} onChange={e => setSequenceStage(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                  {STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </div>
-            )}
           </div>
 
           <p className="text-xs font-medium text-gray-500 mb-2">Pasos de la secuencia</p>
@@ -425,6 +547,7 @@ export default function WorkflowsPage() {
           </div>
 
           <button onClick={addSequenceStep} className="mt-3 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">+ Añadir paso</button>
+          </div>
         </section>
       )}
 
@@ -438,8 +561,8 @@ export default function WorkflowsPage() {
           </p>
 
           {showTplForm && (
-            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-              <h3 className="font-medium text-gray-700">Nueva plantilla</h3>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 space-y-4">
+              <h3 className="font-medium text-gray-700">{editingTemplateId ? 'Editar plantilla' : 'Nueva plantilla'}</h3>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Nombre interno</label>
                 <input value={tplName} onChange={e => setTplName(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="Ej: Cotización enviada" />
@@ -448,9 +571,25 @@ export default function WorkflowsPage() {
                 <label className="block text-xs text-gray-500 mb-1">Mensaje</label>
                 <textarea value={tplBody} onChange={e => setTplBody(e.target.value)} rows={4} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" placeholder="Hola {{nombre}}, le hemos enviado su cotización... o usa {{ia_mensaje}}" />
               </div>
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setShowTplForm(false)} className="px-4 py-2 text-sm text-gray-500">Cancelar</button>
-                <button onClick={saveTemplate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Guardar</button>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Adjunto opcional</label>
+                <input
+                  type="file"
+                  accept="image/*,audio/*,video/*,.pdf"
+                  onChange={event => setTplFile(event.target.files?.[0] || null)}
+                  className="block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-blue-700"
+                />
+                {(tplFile || tplMedia.mediaUrl) && (
+                  <div className="mt-2 flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                    <span>Adjunto: {tplFile?.name || tplMedia.mediaName || 'archivo'}</span>
+                    <button onClick={() => { setTplFile(null); setTplMedia({}) }} className="text-red-500">Quitar</button>
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-gray-400">Imagen, audio, video o PDF. Máximo 25 MB.</p>
+              </div>
+              <div className="flex flex-wrap gap-2 justify-end">
+                <button onClick={closeTemplateForm} className="px-4 py-2 text-sm text-gray-500">Cancelar</button>
+                <button disabled={saving} onClick={saveTemplate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">{saving ? 'Guardando...' : 'Guardar'}</button>
               </div>
             </div>
           )}
@@ -461,12 +600,16 @@ export default function WorkflowsPage() {
             </div>
           )}
           {templates.map(t => (
-            <div key={t.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-start justify-between">
-              <div>
+            <div key={t.id} className="bg-white border border-gray-200 rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
                 <p className="font-medium text-gray-800">{t.name}</p>
                 <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{t.body}</p>
+                {t.mediaUrl && <p className="mt-2 text-xs font-medium text-blue-600">Adjunto: {t.mediaName || t.mediaType || 'archivo'}</p>}
               </div>
-              <button onClick={() => deleteTemplate(t.id)} className="text-gray-400 hover:text-red-500 text-sm ml-4 flex-shrink-0">Eliminar</button>
+              <div className="flex gap-3 flex-shrink-0">
+                <button onClick={() => editTemplate(t)} className="text-sm text-blue-600 hover:text-blue-800">Editar</button>
+                <button onClick={() => deleteTemplate(t.id)} className="text-gray-400 hover:text-red-500 text-sm">Eliminar</button>
+              </div>
             </div>
           ))}
         </section>

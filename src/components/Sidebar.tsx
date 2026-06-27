@@ -125,7 +125,7 @@ const navItems = [
   },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
 
@@ -133,7 +133,7 @@ export default function Sidebar() {
     <aside
       className={`bg-gtl-navy flex flex-col transition-all duration-300 ${
         collapsed ? 'w-16' : 'w-64'
-      } min-h-screen`}
+      } h-full min-h-screen`}
     >
       <div className="flex items-center justify-between px-4 py-5 border-b border-gtl-navy-light">
         {!collapsed && (
@@ -172,6 +172,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group ${
                 isActive
                   ? 'bg-gtl-orange text-white'
