@@ -7,6 +7,8 @@ import { ensureWAMediaDir } from '@/lib/wa-media'
 import path from 'path'
 import fs from 'fs'
 
+const MAX_FILE_SIZE = 25 * 1024 * 1024
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -25,6 +27,7 @@ export async function POST(req: NextRequest) {
   const ptt = form.get('ptt') === 'true'
 
   if (!to || !file) return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
+  if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: 'El archivo supera el límite de 25 MB' }, { status: 400 })
   if (String(to).endsWith('@g.us')) {
     return NextResponse.json({ error: 'No se permite enviar archivos a grupos.' }, { status: 400 })
   }

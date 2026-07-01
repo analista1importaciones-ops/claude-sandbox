@@ -8,7 +8,7 @@ interface Conversation { id: string; remoteJid: string; phoneJid: string | null;
 interface Contact { id: string; name: string; company: string | null; phone: string | null; email: string | null; waName: string | null; tags: string[]; serviceLabel: string; source?: string }
 interface QuickReply { id: string; title: string; body: string }
 interface InternalNote { id: string; content: string; createdAt: string }
-interface ScheduledMsg { id: string; body: string; sendAt: string; sent: boolean }
+interface ScheduledMsg { id: string; body: string; sendAt: string; sent: boolean; mediaUrl: string | null; mediaType: string | null; mediaName: string | null }
 interface FunnelStage { id: string; name: string; order: number; color: string }
 interface Funnel { id: string; name: string; stages: FunnelStage[] }
 
@@ -95,6 +95,8 @@ export default function WhatsAppPage() {
   const [showSchedModal, setShowSchedModal] = useState(false)
   const [schedBody, setSchedBody] = useState('')
   const [schedAt, setSchedAt] = useState('')
+  const [schedFile, setSchedFile] = useState<File | null>(null)
+  const [scheduling, setScheduling] = useState(false)
   const [showApptModal, setShowApptModal] = useState(false)
   const [apptTitle, setApptTitle] = useState('')
   const [apptDesc, setApptDesc] = useState('')
@@ -205,6 +207,7 @@ export default function WhatsAppPage() {
 
       setReply('')
       setAttachFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
       setWaError('')
       await Promise.all([loadMessages(selectedJid, { forceScroll: true }), loadConversations()])
     } catch (error) {
@@ -424,9 +427,38 @@ export default function WhatsAppPage() {
     await fetch('/api/quick-replies/' + id, { method: 'DELETE' }); loadQuickReplies()
   }
   async function scheduleMessage() {
-    if (!schedBody.trim() || !schedAt || !selectedJid) return
-    await fetch('/api/scheduled-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remoteJid: selectedJid, body: schedBody, sendAt: new Date(schedAt).toISOString(), contactId: linkedContact?.id }) })
-    setSchedBody(''); setSchedAt(''); setShowSchedModal(false); loadScheduled(selectedJid)
+    if ((!schedBody.trim() && !schedFile) || !schedAt || !selectedJid) return
+    setScheduling(true)
+    try {
+      let media: { mediaUrl?: string; mediaType?: string; mediaName?: string } = {}
+      if (schedFile) {
+        const fd = new FormData()
+        fd.append('file', schedFile)
+        const uploadRes = await fetch('/api/templates/media', { method: 'POST', body: fd })
+        const uploadData = await uploadRes.json().catch(() => null)
+        if (!uploadRes.ok) throw new Error(uploadData?.error || 'No se pudo guardar el adjunto.')
+        media = uploadData
+      }
+      const res = await fetch('/api/scheduled-messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          remoteJid: selectedJid,
+          body: schedBody.trim() || schedFile?.name || 'Adjunto',
+          sendAt: new Date(schedAt).toISOString(),
+          contactId: linkedContact?.id,
+          ...media,
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'No se pudo programar el mensaje.')
+      setSchedBody(''); setSchedAt(''); setSchedFile(null); setShowSchedModal(false); setWaError('')
+      loadScheduled(selectedJid)
+    } catch (error) {
+      setWaError(error instanceof Error ? error.message : 'No se pudo programar el mensaje.')
+    } finally {
+      setScheduling(false)
+    }
   }
   async function createAppointment() {
     if (!apptTitle.trim() || !apptStart || !apptEnd) return
@@ -604,10 +636,19 @@ export default function WhatsAppPage() {
                     </div>
                   ) : (
                   <div className="flex gap-2 items-center w-full">
-                    <input ref={fileInputRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={e => setAttachFile(e.target.files?.[0] ?? null)} />
-                    <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-blue-500" title="Adjuntar archivo">
+                    <label className="p-2 text-gray-400 hover:text-blue-500 cursor-pointer" title="Adjuntar archivo">
+                      <input ref={fileInputRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" className="sr-only" onChange={e => {
+                        const file = e.target.files?.[0] ?? null
+                        if (file && file.size > 25 * 1024 * 1024) {
+                          setWaError('El archivo supera el límite de 25 MB.')
+                          e.target.value = ''
+                          return
+                        }
+                        setAttachFile(file)
+                        setWaError('')
+                      }} />
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                    </button>
+                    </label>
                     <div className="relative">
                       <button onClick={() => setShowQRPicker(!showQRPicker)} className="p-2 text-gray-400 hover:text-yellow-500" title="Respuestas rapidas">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -663,6 +704,7 @@ export default function WhatsAppPage() {
                   {safeScheduled.map(s => (
                     <div key={s.id} className={`border rounded-lg px-3 py-2 ${s.sent ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'}`}>
                       <p className="text-sm text-gray-800">{s.body}</p>
+                      {s.mediaName && <p className="text-xs text-blue-600 mt-1">Adjunto: {s.mediaName}</p>}
                       <p className="text-xs text-gray-400 mt-1">{new Date(s.sendAt).toLocaleString('es-GT')} {s.sent ? 'Enviado' : 'Pendiente'}</p>
                     </div>
                   ))}
@@ -801,18 +843,31 @@ export default function WhatsAppPage() {
 
       {showSchedModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-96 p-6">
+          <div className="bg-white rounded-xl shadow-xl w-[calc(100%-2rem)] max-w-sm p-5 sm:p-6">
             <h2 className="text-base font-bold text-gray-900 mb-4">Programar mensaje</h2>
             <div className="space-y-3">
               <textarea value={schedBody} onChange={e => setSchedBody(e.target.value)} placeholder="Mensaje..." rows={4} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              <label className="block w-full border border-dashed border-blue-300 rounded-lg px-3 py-2 text-sm text-blue-700 cursor-pointer hover:bg-blue-50">
+                <input type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" className="sr-only" onChange={e => {
+                  const file = e.target.files?.[0] ?? null
+                  if (file && file.size > 25 * 1024 * 1024) {
+                    setWaError('El archivo supera el límite de 25 MB.')
+                    e.target.value = ''
+                    return
+                  }
+                  setSchedFile(file)
+                  setWaError('')
+                }} />
+                {schedFile ? `Adjunto: ${schedFile.name}` : 'Adjuntar imagen, audio, video o documento'}
+              </label>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Enviar el</label>
                 <input type="datetime-local" value={schedAt} onChange={e => setSchedAt(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setShowSchedModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button onClick={scheduleMessage} disabled={!schedBody.trim() || !schedAt} className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:opacity-50">Programar</button>
+              <button onClick={() => { setShowSchedModal(false); setSchedFile(null) }} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+              <button onClick={scheduleMessage} disabled={scheduling || (!schedBody.trim() && !schedFile) || !schedAt} className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:opacity-50">{scheduling ? 'Guardando...' : 'Programar'}</button>
             </div>
           </div>
         </div>
