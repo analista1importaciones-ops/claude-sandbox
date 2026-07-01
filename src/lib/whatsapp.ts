@@ -199,7 +199,19 @@ export async function startWhatsApp(options: { manual?: boolean } = {}) {
             await prisma.contact.update({ where: { id: contact.id }, data: { waName: pushName } }).catch(() => {})
           }
 
-          await prisma.whatsAppMessage.create({
+          await prisma.whatsAppMessage.upsert({
+            where: { messageId: msg.key.id! },
+            update: {
+              remoteJid: jid,
+              fromMe,
+              content,
+              phoneJid,
+              timestamp: new Date(Number(msg.messageTimestamp) * 1000),
+              contactId: contact?.id ?? null,
+              mediaUrl: mediaData?.mediaUrl ?? null,
+              mediaType: mediaData?.mediaType ?? null,
+              waName: pushName,
+            },
             data: {
               remoteJid: jid,
               fromMe,
@@ -212,7 +224,9 @@ export async function startWhatsApp(options: { manual?: boolean } = {}) {
               mediaType: mediaData?.mediaType ?? null,
               waName: pushName,
             },
-          }).catch(() => {})
+          }).catch(error => {
+            console.error('[WhatsApp] message persistence failed:', error)
+          })
 
           await prisma.waConversation.upsert({
             where: { remoteJid: jid },
@@ -259,18 +273,23 @@ export async function ensureWhatsAppReady() {
   return global.__waSock
 }
 
-export async function sendWAMessage(to: string, body: string) {
+export async function sendWAMessageWithResult(to: string, body: string) {
   const sock = await ensureWhatsAppReady()
   const jid = normalizeRecipient(to)
   try {
-    await sock.sendMessage(jid, { text: body })
-    return jid
+    const sent = await sock.sendMessage(jid, { text: body })
+    return { jid, messageId: sent?.key?.id ?? `out-${Date.now()}` }
   } catch (error) {
     global.__waStatus = 'disconnected'
     global.__waSock = null
     scheduleReconnect()
     throw error
   }
+}
+
+export async function sendWAMessage(to: string, body: string) {
+  const { jid } = await sendWAMessageWithResult(to, body)
+  return jid
 }
 
 export async function sendWAMediaMessage(to: string, body: string, mediaUrl: string, mediaType: string | null | undefined, mediaName?: string | null) {

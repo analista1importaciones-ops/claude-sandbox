@@ -18,11 +18,11 @@ export async function GET(req: NextRequest) {
         ...(contactId ? { contactId } : {}),
         ...(jid ? { OR: [{ remoteJid: jid }, { phoneJid: jid }] } : {}),
       },
-      orderBy: { timestamp: 'asc' },
+      orderBy: { timestamp: 'desc' },
       take: 100,
     })
 
-    return NextResponse.json(messages)
+    return NextResponse.json(messages.reverse())
   } catch (error) {
     console.error('[WhatsApp messages] load failed', error)
     return NextResponse.json({ error: 'No se pudieron cargar los mensajes de WhatsApp.' }, { status: 500 })

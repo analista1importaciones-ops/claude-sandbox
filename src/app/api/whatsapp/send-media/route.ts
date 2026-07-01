@@ -83,16 +83,28 @@ export async function POST(req: NextRequest) {
   const mediaUrl = `/wa-media/${filename}`
   const mediaType = sentAsDocument ? 'document' : mime.startsWith('image/') ? 'image' : mime.startsWith('audio/') ? 'audio' : mime.startsWith('video/') ? 'video' : 'document'
 
-  await prisma.whatsAppMessage.create({
-    data: {
+  const messageId = sentMsg?.key?.id ?? `sent-${Date.now()}`
+  await prisma.whatsAppMessage.upsert({
+    where: { messageId },
+    update: {
       remoteJid: jid, fromMe: true,
       content: caption || name,
-      messageId: sentMsg?.key?.id ?? `sent-${Date.now()}`,
       timestamp: new Date(),
       mediaUrl, mediaType,
       contactId: contactId || null,
     },
-  }).catch(() => {})
+    data: {
+      remoteJid: jid, fromMe: true,
+      content: caption || name,
+      messageId,
+      timestamp: new Date(),
+      mediaUrl, mediaType,
+      contactId: contactId || null,
+    },
+  }).catch(error => {
+    console.error('[WhatsApp] sent media persistence failed:', error)
+    throw error
+  })
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, messageId })
 }

@@ -188,19 +188,30 @@ export default function WhatsAppPage() {
   async function sendReply() {
     if ((!reply.trim() && !attachFile) || !selectedJid) return
     setSending(true)
-    if (attachFile) {
-      const fd = new FormData()
-      fd.append('to', selectedJid)
-      fd.append('file', attachFile)
-      if (reply.trim()) fd.append('caption', reply)
-      if (linkedContact?.id) fd.append('contactId', linkedContact.id)
-      await fetch('/api/whatsapp/send-media', { method: 'POST', body: fd })
+    try {
+      let res: Response
+      if (attachFile) {
+        const fd = new FormData()
+        fd.append('to', selectedJid)
+        fd.append('file', attachFile)
+        if (reply.trim()) fd.append('caption', reply)
+        if (linkedContact?.id) fd.append('contactId', linkedContact.id)
+        res = await fetch('/api/whatsapp/send-media', { method: 'POST', body: fd })
+      } else {
+        res = await fetch('/api/whatsapp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: selectedJid, body: reply, contactId: linkedContact?.id }) })
+      }
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'No se pudo enviar el mensaje.')
+
+      setReply('')
       setAttachFile(null)
-    } else {
-      await fetch('/api/whatsapp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: selectedJid, body: reply, contactId: linkedContact?.id }) })
+      setWaError('')
+      await Promise.all([loadMessages(selectedJid, { forceScroll: true }), loadConversations()])
+    } catch (error) {
+      setWaError(error instanceof Error ? error.message : 'No se pudo enviar el mensaje.')
+    } finally {
+      setSending(false)
     }
-    setReply(''); setSending(false)
-    loadMessages(selectedJid, { forceScroll: true }); loadConversations()
   }
 
   function renderMedia(m: Message) {
