@@ -13,5 +13,16 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
-  return NextResponse.json(await prisma.quickReply.create({ data: body }))
+  if (!String(body.title || '').trim() || !String(body.body || '').trim()) {
+    return NextResponse.json({ error: 'Título y mensaje son obligatorios.' }, { status: 400 })
+  }
+  return NextResponse.json(await prisma.quickReply.create({
+    data: {
+      title: String(body.title).trim(),
+      body: String(body.body).trim(),
+      mediaUrl: body.mediaUrl || null,
+      mediaType: body.mediaType || null,
+      mediaName: body.mediaName || null,
+    },
+  }))
 }

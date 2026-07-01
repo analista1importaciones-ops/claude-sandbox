@@ -6,7 +6,7 @@ import QRCode from 'qrcode'
 interface Message { id: string; remoteJid: string; phoneJid: string | null; fromMe: boolean; content: string; timestamp: string; contactId: string | null; mediaUrl: string | null; mediaType: string | null }
 interface Conversation { id: string; remoteJid: string; phoneJid: string | null; content: string; timestamp: string; fromMe: boolean; unreadCount: number; convStatus: string; waName: string | null; contact: { id: string; name: string; phone: string | null } | null }
 interface Contact { id: string; name: string; company: string | null; phone: string | null; email: string | null; waName: string | null; tags: string[]; serviceLabel: string; source?: string }
-interface QuickReply { id: string; title: string; body: string }
+interface QuickReply { id: string; title: string; body: string; mediaUrl: string | null; mediaType: string | null; mediaName: string | null }
 interface InternalNote { id: string; content: string; createdAt: string }
 interface ScheduledMsg { id: string; body: string; sendAt: string; sent: boolean; mediaUrl: string | null; mediaType: string | null; mediaName: string | null }
 interface FunnelStage { id: string; name: string; order: number; color: string }
@@ -89,6 +89,8 @@ export default function WhatsAppPage() {
   const [showQR, setShowQR] = useState(false)
   const [newQRTitle, setNewQRTitle] = useState('')
   const [newQRBody, setNewQRBody] = useState('')
+  const [newQRFile, setNewQRFile] = useState<File | null>(null)
+  const [savingQR, setSavingQR] = useState(false)
   const [notes, setNotes] = useState<InternalNote[]>([])
   const [newNote, setNewNote] = useState('')
   const [scheduled, setScheduled] = useState<ScheduledMsg[]>([])
@@ -420,8 +422,47 @@ export default function WhatsAppPage() {
   }
   async function createQR() {
     if (!newQRTitle.trim() || !newQRBody.trim()) return
-    await fetch('/api/quick-replies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newQRTitle, body: newQRBody }) })
-    setNewQRTitle(''); setNewQRBody(''); loadQuickReplies()
+    setSavingQR(true)
+    try {
+      let media: { mediaUrl?: string; mediaType?: string; mediaName?: string } = {}
+      if (newQRFile) {
+        const fd = new FormData()
+        fd.append('file', newQRFile)
+        const uploadRes = await fetch('/api/templates/media', { method: 'POST', body: fd })
+        const uploadData = await uploadRes.json().catch(() => null)
+        if (!uploadRes.ok) throw new Error(uploadData?.error || 'No se pudo guardar el adjunto.')
+        media = uploadData
+      }
+      const res = await fetch('/api/quick-replies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newQRTitle, body: newQRBody, ...media }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'No se pudo guardar la respuesta rápida.')
+      setNewQRTitle(''); setNewQRBody(''); setNewQRFile(null); setWaError(''); loadQuickReplies()
+    } catch (error) {
+      setWaError(error instanceof Error ? error.message : 'No se pudo guardar la respuesta rápida.')
+    } finally {
+      setSavingQR(false)
+    }
+  }
+
+  async function applyQuickReply(qr: QuickReply) {
+    setReply(qr.body)
+    setAttachFile(null)
+    if (qr.mediaUrl) {
+      try {
+        const res = await fetch(qr.mediaUrl)
+        if (!res.ok) throw new Error('No se pudo cargar el adjunto guardado.')
+        const blob = await res.blob()
+        setAttachFile(new File([blob], qr.mediaName || 'adjunto', { type: blob.type || 'application/octet-stream' }))
+      } catch (error) {
+        setWaError(error instanceof Error ? error.message : 'No se pudo cargar el adjunto guardado.')
+      }
+    }
+    setShowQRPicker(false)
+    setActiveTab('chat')
   }
   async function deleteQR(id: string) {
     await fetch('/api/quick-replies/' + id, { method: 'DELETE' }); loadQuickReplies()
@@ -656,10 +697,11 @@ export default function WhatsAppPage() {
                       {showQRPicker && safeQuickReplies.length > 0 && (
                         <div className="absolute bottom-10 left-0 bg-white border border-gray-200 rounded-lg shadow-lg w-64 max-h-48 overflow-y-auto z-10">
                           {safeQuickReplies.map(qr => (
-                            <button key={qr.id} onClick={() => { setReply(qr.body); setShowQRPicker(false) }}
+                            <button key={qr.id} onClick={() => applyQuickReply(qr)}
                               className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0">
                               <p className="text-xs font-medium text-gray-700">{qr.title}</p>
                               <p className="text-xs text-gray-400 truncate">{qr.body}</p>
+                              {qr.mediaName && <p className="text-[10px] text-blue-500 truncate">Adjunto: {qr.mediaName}</p>}
                             </button>
                           ))}
                         </div>
@@ -822,15 +864,28 @@ export default function WhatsAppPage() {
               <div className="mb-3 space-y-2">
                 <input type="text" value={newQRTitle} onChange={e => setNewQRTitle(e.target.value)} placeholder="Titulo" className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
                 <textarea value={newQRBody} onChange={e => setNewQRBody(e.target.value)} placeholder="Texto del mensaje" rows={3} className="w-full border border-gray-200 rounded px-2 py-1 text-xs resize-none" />
-                <button onClick={createQR} disabled={!newQRTitle.trim() || !newQRBody.trim()} className="w-full py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 disabled:opacity-50">Guardar</button>
+                <label className="block w-full rounded border border-dashed border-blue-300 px-2 py-1.5 text-xs text-blue-600 cursor-pointer hover:bg-blue-50">
+                  <input type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" className="sr-only" onChange={e => {
+                    const file = e.target.files?.[0] ?? null
+                    if (file && file.size > 25 * 1024 * 1024) {
+                      setWaError('El archivo supera el límite de 25 MB.')
+                      e.target.value = ''
+                      return
+                    }
+                    setNewQRFile(file)
+                  }} />
+                  {newQRFile ? `Adjunto: ${newQRFile.name}` : 'Adjuntar archivo (opcional)'}
+                </label>
+                <button onClick={createQR} disabled={savingQR || !newQRTitle.trim() || !newQRBody.trim()} className="w-full py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 disabled:opacity-50">{savingQR ? 'Guardando...' : 'Guardar'}</button>
               </div>
             )}
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {safeQuickReplies.map(qr => (
                 <div key={qr.id} className="flex items-start gap-1 group">
-                  <button onClick={() => { setReply(qr.body); setActiveTab('chat') }} className="flex-1 text-left px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">
+                  <button onClick={() => applyQuickReply(qr)} className="flex-1 text-left px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">
                     <span className="font-medium">{qr.title}</span>
                     <span className="block text-gray-400 truncate">{qr.body}</span>
+                    {qr.mediaName && <span className="block text-blue-500 truncate">Adjunto: {qr.mediaName}</span>}
                   </button>
                   <button onClick={() => deleteQR(qr.id)} className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 p-1 text-xs">x</button>
                 </div>

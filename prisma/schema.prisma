@@ -543,6 +543,9 @@ model QuickReply {
   id        String   @id @default(cuid())
   title     String
   body      String
+  mediaUrl  String?
+  mediaType String?
+  mediaName String?
   createdAt DateTime @default(now())
 }
 
