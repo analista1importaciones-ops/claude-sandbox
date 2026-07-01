@@ -53,6 +53,8 @@ export async function ensureDefaultFunnels() {
       include: { stages: true },
     })
 
+    if (funnel.stages.length > 0) continue
+
     for (let index = 0; index < config.stages.length; index += 1) {
       const stageName = config.stages[index]
       const found = funnel.stages.some(stage => normalizeServiceText(stage.name) === normalizeServiceText(stageName))

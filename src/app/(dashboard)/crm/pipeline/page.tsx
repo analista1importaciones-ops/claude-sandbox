@@ -42,6 +42,9 @@ export default function PipelinePage() {
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
   const [dragging, setDragging] = useState<string | null>(null)
+  const [editingFunnel, setEditingFunnel] = useState<Funnel | null>(null)
+  const [pipelineNotice, setPipelineNotice] = useState('')
+  const [savingFunnel, setSavingFunnel] = useState(false)
 
   const activeFunnel = useMemo(
     () => funnels.find(funnel => funnel.id === activeFunnelId) ?? funnels[0] ?? null,
@@ -79,7 +82,34 @@ export default function PipelinePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ funnelStageId: funnelStage.id }),
     })
-    if (!res.ok) loadDeals()
+    const data = await res.json().catch(() => null)
+    if (!res.ok) {
+      setPipelineNotice(data?.error || 'No se pudo mover la oportunidad.')
+      loadDeals()
+      return
+    }
+    if (data?.automationError) setPipelineNotice(`La etapa cambió, pero el workflow falló: ${data.automationError}`)
+    else setPipelineNotice('Etapa actualizada. Los seguimientos configurados fueron programados.')
+  }
+
+  async function saveFunnel() {
+    if (!editingFunnel) return
+    setSavingFunnel(true)
+    const res = await fetch(`/api/crm/funnels/${editingFunnel.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: editingFunnel.name, stages: editingFunnel.stages }),
+    })
+    const data = await res.json().catch(() => null)
+    setSavingFunnel(false)
+    if (!res.ok) {
+      setPipelineNotice(data?.error || 'No se pudo guardar el embudo.')
+      return
+    }
+    setEditingFunnel(null)
+    setPipelineNotice('Embudo actualizado. Los workflows conservan sus etapas vinculadas.')
+    await loadFunnels()
+    await loadDeals(activeFunnelId)
   }
 
   function onDrop(e: React.DragEvent, stage: FunnelStage) {
@@ -102,6 +132,7 @@ export default function PipelinePage() {
           </p>
         </div>
         <div className="flex gap-3">
+          {activeFunnel && <button onClick={() => setEditingFunnel({ ...activeFunnel, stages: activeFunnel.stages.map(stage => ({ ...stage })) })} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Editar embudo</button>}
           <Link href="/crm" className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
             Ver Contactos
           </Link>
@@ -110,6 +141,8 @@ export default function PipelinePage() {
           </Link>
         </div>
       </div>
+
+      {pipelineNotice && <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">{pipelineNotice}</div>}
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         {funnels.map(funnel => (
@@ -212,6 +245,32 @@ export default function PipelinePage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {editingFunnel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+            <h2 className="text-lg font-bold text-gray-900">Editar embudo</h2>
+            <label className="mt-4 block text-xs font-medium text-gray-500">Nombre</label>
+            <input value={editingFunnel.name} onChange={event => setEditingFunnel({ ...editingFunnel, name: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <div className="mt-4 max-h-[55vh] space-y-2 overflow-y-auto">
+              {editingFunnel.stages.map((stage, index) => (
+                <div key={stage.id || index} className="flex items-center gap-2">
+                  <input type="color" value={stage.color} onChange={event => setEditingFunnel({ ...editingFunnel, stages: editingFunnel.stages.map((item, itemIndex) => itemIndex === index ? { ...item, color: event.target.value } : item) })} className="h-9 w-10 rounded border border-gray-200" />
+                  <input value={stage.name} onChange={event => setEditingFunnel({ ...editingFunnel, stages: editingFunnel.stages.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  <button disabled={index === 0} onClick={() => { const stages = [...editingFunnel.stages]; [stages[index - 1], stages[index]] = [stages[index], stages[index - 1]]; setEditingFunnel({ ...editingFunnel, stages }) }} className="px-2 py-1 text-gray-500 disabled:opacity-30">↑</button>
+                  <button disabled={index === editingFunnel.stages.length - 1} onClick={() => { const stages = [...editingFunnel.stages]; [stages[index], stages[index + 1]] = [stages[index + 1], stages[index]]; setEditingFunnel({ ...editingFunnel, stages }) }} className="px-2 py-1 text-gray-500 disabled:opacity-30">↓</button>
+                  <button onClick={() => setEditingFunnel({ ...editingFunnel, stages: editingFunnel.stages.filter((_, itemIndex) => itemIndex !== index) })} className="px-2 py-1 text-red-500">×</button>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setEditingFunnel({ ...editingFunnel, stages: [...editingFunnel.stages, { id: '', name: 'NUEVA ETAPA', order: editingFunnel.stages.length, color: '#6B7280' }] })} className="mt-3 text-sm font-medium text-blue-600">+ Agregar etapa</button>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setEditingFunnel(null)} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100">Cancelar</button>
+              <button onClick={saveFunnel} disabled={savingFunnel} className="rounded-lg bg-gtl-orange px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{savingFunnel ? 'Guardando...' : 'Guardar cambios'}</button>
+            </div>
           </div>
         </div>
       )}

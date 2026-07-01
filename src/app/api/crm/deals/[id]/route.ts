@@ -39,10 +39,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const stageChanged = Boolean(body.stage && previous?.stage !== body.stage)
   const funnelStageChanged = Boolean(nextFunnelStage && previous?.funnelStageId !== nextFunnelStage.id)
+  let automation = null
+  let automationError = null
   if (stageChanged || funnelStageChanged) {
-    await startDealStageWorkflows(deal, previous?.funnelStageId).catch(e => console.error('[Workflow] stage start failed', e))
+    try {
+      automation = await startDealStageWorkflows(deal, previous?.funnelStageId)
+    } catch (error) {
+      automationError = error instanceof Error ? error.message : 'No se pudo iniciar el workflow.'
+      console.error('[Workflow] stage start failed', error)
+    }
   }
-  return NextResponse.json(deal)
+  return NextResponse.json({ ...deal, automation, automationError })
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
