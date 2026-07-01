@@ -334,6 +334,7 @@ model Contact {
   appointments      Appointment[]
   internalNotes     InternalNote[]
   serviceInvoices   ServiceInvoice[]
+  workflowRuns      WorkflowRun[]
 
   @@index([phone])
   @@index([serviceLabel])
@@ -358,6 +359,7 @@ model Deal {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   activities       Activity[]
+  workflowRuns     WorkflowRun[]
 
   @@index([contactId])
   @@index([stage])
@@ -419,14 +421,15 @@ model WaConversation {
 }
 
 model WhatsAppTemplate {
-  id        String     @id @default(cuid())
-  name      String
-  body      String
-  mediaUrl  String?
-  mediaType String?
-  mediaName String?
-  createdAt DateTime   @default(now())
-  workflows Workflow[]
+  id            String         @id @default(cuid())
+  name          String
+  body          String
+  mediaUrl      String?
+  mediaType     String?
+  mediaName     String?
+  createdAt     DateTime       @default(now())
+  workflows     Workflow[]
+  workflowSteps WorkflowStep[]
 }
 
 model Workflow {
@@ -446,9 +449,55 @@ model Workflow {
   template      WhatsAppTemplate? @relation(fields: [templateId], references: [id])
   active        Boolean           @default(true)
   createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  steps         WorkflowStep[]
+  runs          WorkflowRun[]
 
   @@index([active, trigger, stage])
   @@index([serviceTag])
+  @@index([active, trigger, funnelId, funnelStageId])
+}
+
+model WorkflowStep {
+  id                String             @id @default(cuid())
+  workflowId        String
+  workflow          Workflow           @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  order             Int
+  delayDays         Int                @default(0)
+  delayHours        Int                @default(0)
+  delayMinutes      Int                @default(0)
+  templateId        String?
+  template          WhatsAppTemplate?  @relation(fields: [templateId], references: [id])
+  scheduledMessages ScheduledMessage[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([workflowId, order])
+  @@index([templateId])
+}
+
+model WorkflowRun {
+  id                String             @id @default(cuid())
+  key               String             @unique
+  workflowId        String
+  workflow          Workflow           @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  contactId         String
+  contact           Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  dealId            String?
+  deal              Deal?              @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  funnelStageId     String?
+  status            WorkflowRunStatus  @default(ACTIVE)
+  startedAt         DateTime           @default(now())
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  lastError         String?
+  scheduledMessages ScheduledMessage[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([workflowId, status])
+  @@index([contactId, status])
+  @@index([dealId, status])
 }
 
 model Funnel {
@@ -481,6 +530,13 @@ enum WorkflowTrigger {
   CONTACT_CREATED
 }
 
+enum WorkflowRunStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
 // ─── Sprint 8 ────────────────────────────────────────────────────
 
 model QuickReply {
@@ -491,22 +547,42 @@ model QuickReply {
 }
 
 model ScheduledMessage {
-  id           String    @id @default(cuid())
-  remoteJid    String
-  body         String
-  mediaUrl     String?
-  mediaType    String?
-  mediaName    String?
-  sendAt       DateTime
-  sent         Boolean   @default(false)
-  processingAt DateTime?
-  contactId    String?
-  contact      Contact?  @relation(fields: [contactId], references: [id])
-  createdAt    DateTime  @default(now())
+  id             String                 @id @default(cuid())
+  remoteJid      String
+  body           String
+  mediaUrl       String?
+  mediaType      String?
+  mediaName      String?
+  sendAt         DateTime
+  sent           Boolean                @default(false)
+  processingAt   DateTime?
+  contactId      String?
+  contact        Contact?               @relation(fields: [contactId], references: [id])
+  status         ScheduledMessageStatus @default(PENDING)
+  attempts       Int                    @default(0)
+  lastError      String?
+  sentAt         DateTime?
+  cancelledAt    DateTime?
+  workflowRunId  String?
+  workflowRun    WorkflowRun?           @relation(fields: [workflowRunId], references: [id])
+  workflowStepId String?
+  workflowStep   WorkflowStep?          @relation(fields: [workflowStepId], references: [id])
+  createdAt      DateTime               @default(now())
 
   @@index([sent, sendAt])
+  @@index([status, sendAt])
   @@index([processingAt])
   @@index([contactId])
+  @@index([workflowRunId])
+  @@index([workflowStepId])
+}
+
+enum ScheduledMessageStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
 }
 
 model WorkflowExecution {

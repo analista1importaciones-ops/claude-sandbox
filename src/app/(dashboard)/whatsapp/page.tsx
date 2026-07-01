@@ -73,6 +73,7 @@ export default function WhatsAppPage() {
   const [qrUrl, setQrUrl] = useState<string | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedJid, setSelectedJid] = useState<string | null>(null)
+  const [mobileView, setMobileView] = useState<'inbox' | 'chat' | 'contact'>('inbox')
   const [messages, setMessages] = useState<Message[]>([])
   const [waError, setWaError] = useState('')
   const [reply, setReply] = useState('')
@@ -112,6 +113,8 @@ export default function WhatsAppPage() {
   const [contactForm, setContactForm] = useState({ name: '', phone: '', email: '', company: '', waName: '', tags: [] as string[], serviceLabel: 'OTRO' })
   const [savingContact, setSavingContact] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const messagesRef = useRef<HTMLDivElement>(null)
+  const stickToBottomRef = useRef(true)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   async function pollStatus() {
@@ -131,13 +134,19 @@ export default function WhatsAppPage() {
       setWaError(data?.error ?? 'No se pudieron cargar las conversaciones.')
     }
   }
-  async function loadMessages(jid: string) {
+  function isNearBottom() {
+    const el = messagesRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 140
+  }
+  async function loadMessages(jid: string, options: { forceScroll?: boolean } = {}) {
+    const shouldScroll = options.forceScroll || stickToBottomRef.current || isNearBottom()
     const res = await fetch('/api/whatsapp/messages?jid=' + encodeURIComponent(jid))
     const data = await res.json().catch(() => null)
     if (res.ok && Array.isArray(data)) {
       setMessages(data)
       setWaError('')
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+      if (shouldScroll) setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: options.forceScroll ? 'auto' : 'smooth' }), 80)
     } else {
       setMessages([])
       setWaError(data?.error ?? 'No se pudieron cargar los mensajes.')
@@ -191,7 +200,7 @@ export default function WhatsAppPage() {
       await fetch('/api/whatsapp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: selectedJid, body: reply, contactId: linkedContact?.id }) })
     }
     setReply(''); setSending(false)
-    loadMessages(selectedJid); loadConversations()
+    loadMessages(selectedJid, { forceScroll: true }); loadConversations()
   }
 
   function renderMedia(m: Message) {
@@ -361,7 +370,7 @@ export default function WhatsAppPage() {
             const data = await res.json().catch(() => null)
             throw new Error(data?.error || 'No se pudo enviar el audio')
           }
-          loadMessages(jid); loadConversations()
+          loadMessages(jid, { forceScroll: true }); loadConversations()
         } catch (error) {
           alert(error instanceof Error ? error.message : 'No se pudo enviar el audio')
         } finally {
@@ -423,7 +432,8 @@ export default function WhatsAppPage() {
 
   useEffect(() => {
     if (selectedJid) {
-      loadMessages(selectedJid); loadNotes(selectedJid); loadScheduled(selectedJid)
+      stickToBottomRef.current = true
+      loadMessages(selectedJid, { forceScroll: true }); loadNotes(selectedJid); loadScheduled(selectedJid)
       markRead(selectedJid)
       const conv = conversations.find(c => c.remoteJid === selectedJid)
       if (conv?.contact) {
@@ -462,9 +472,9 @@ export default function WhatsAppPage() {
   const filteredContacts = safeContacts.filter(c => c.name.toLowerCase().includes(contactSearch.toLowerCase()) || (c.phone ?? '').includes(contactSearch))
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
+    <div className="flex h-[calc(100dvh-64px)] min-w-0 overflow-hidden">
       {/* Left: conversation list */}
-      <div className="w-72 border-r border-gray-100 flex flex-col bg-white">
+      <div className={`${mobileView === 'inbox' ? 'flex' : 'hidden'} w-full border-r border-gray-100 bg-white md:flex md:w-72 flex-col`}>
         <div className="px-4 py-4 border-b border-gray-100">
           <h1 className="text-lg font-bold text-gray-900">WhatsApp</h1>
           <div className="flex items-center gap-2 mt-1">
@@ -483,7 +493,7 @@ export default function WhatsAppPage() {
           {safeConversations.length === 0
             ? <p className="text-xs text-gray-400 text-center mt-8 px-4">{status === 'connected' ? 'Los chats apareceran aqui cuando recibas mensajes' : 'Conecta WhatsApp para ver los chats'}</p>
             : filteredConversations.map(conv => (
-              <button key={conv.remoteJid} onClick={() => setSelectedJid(conv.remoteJid)}
+              <button key={conv.remoteJid} onClick={() => { setSelectedJid(conv.remoteJid); setMobileView('chat') }}
                 className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${selectedJid === conv.remoteJid ? 'bg-green-50 border-l-2 border-l-green-500' : ''}`}>
                 <div className="flex items-center justify-between">
                   <span className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
@@ -506,7 +516,7 @@ export default function WhatsAppPage() {
       </div>
 
       {/* Center: chat */}
-      <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
+      <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} flex-1 flex-col bg-gray-50 min-w-0 md:flex`}>
         {waError && (
           <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-700">
             {waError}
@@ -516,7 +526,9 @@ export default function WhatsAppPage() {
           ? <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">{status === 'connected' ? 'Selecciona una conversacion' : 'Conecta WhatsApp para ver los chats'}</div>
           : <>
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-              <div>
+              <div className="flex min-w-0 items-center gap-2">
+                <button onClick={() => setMobileView('inbox')} className="md:hidden rounded-full border border-gray-200 px-2 py-1 text-xs text-gray-600">Volver</button>
+                <div className="min-w-0">
                 <p className="font-medium text-gray-800">{selectedConv?.contact?.name ?? selectedConv?.waName ?? getJidLabel(selectedJid)}</p>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   {selectedPhone ? (
@@ -529,8 +541,10 @@ export default function WhatsAppPage() {
                     </span>
                   )}
                 </div>
+                </div>
               </div>
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2 items-center overflow-x-auto">
+                <button onClick={() => setMobileView('contact')} className="md:hidden px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Perfil</button>
                 {selectedConv && selectedConv.convStatus !== 'ATTENDED' && (
                   <button onClick={() => markAttended(selectedJid)} className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200">Atendido</button>
                 )}
@@ -548,10 +562,14 @@ export default function WhatsAppPage() {
 
             {activeTab === 'chat' && (
               <>
-                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                <div
+                  ref={messagesRef}
+                  onScroll={() => { stickToBottomRef.current = isNearBottom() }}
+                  className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2"
+                >
                   {safeMessages.map(m => (
                     <div key={m.id} className={`flex ${m.fromMe ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-xs px-3 py-2 rounded-xl text-sm ${m.fromMe ? 'bg-green-500 text-white' : 'bg-white text-gray-800 border border-gray-100'}`}>
+                      <div className={`max-w-[82vw] sm:max-w-xs px-3 py-2 rounded-xl text-sm ${m.fromMe ? 'bg-green-500 text-white' : 'bg-white text-gray-800 border border-gray-100'}`}>
                         {renderMedia(m)}
                         <div className={`text-xs mt-1 ${m.fromMe ? 'text-green-100' : 'text-gray-400'}`}>{new Date(m.timestamp).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
@@ -559,7 +577,7 @@ export default function WhatsAppPage() {
                   ))}
                   <div ref={bottomRef} />
                 </div>
-                <div className="border-t border-gray-200 bg-white px-4 py-3 flex gap-2 items-center flex-col">
+                <div className="border-t border-gray-200 bg-white px-3 sm:px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex gap-2 items-center flex-col">
                   {attachFile && (
                     <div className="w-full flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs text-blue-700">
                       <span className="flex-1 truncate">{attachFile.name}</span>
@@ -595,7 +613,7 @@ export default function WhatsAppPage() {
                         </div>
                       )}
                     </div>
-                    <input type="text" value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendReply()} placeholder="Escribe un mensaje..." className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+                    <input type="text" value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendReply()} placeholder="Escribe un mensaje..." className="min-w-0 flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
                     <button onClick={startRecording} className="p-2 text-gray-400 hover:text-red-500" title="Grabar audio">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                     </button>
@@ -645,10 +663,13 @@ export default function WhatsAppPage() {
 
       {/* Right: contact panel */}
       {selectedJid && (
-        <div className="w-72 border-l border-gray-100 flex flex-col bg-white overflow-y-auto">
+        <div className={`${mobileView === 'contact' ? 'flex' : 'hidden'} w-full border-l border-gray-100 bg-white overflow-y-auto md:flex md:w-72 flex-col`}>
           <div className="px-4 py-4 border-b border-gray-100">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contacto CRM</p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setMobileView('chat')} className="md:hidden rounded-full border border-gray-200 px-2 py-1 text-xs text-gray-600">Chat</button>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contacto CRM</p>
+              </div>
               {!editingContact && (
                 <button onClick={() => openContactEdit(linkedContact)} className="text-xs text-blue-500 hover:text-blue-700">
                   {linkedContact ? 'Editar' : '+ Nuevo'}

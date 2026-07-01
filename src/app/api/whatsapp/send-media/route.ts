@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
   const ptt = form.get('ptt') === 'true'
 
   if (!to || !file) return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
+  if (String(to).endsWith('@g.us')) {
+    return NextResponse.json({ error: 'No se permite enviar archivos a grupos.' }, { status: 400 })
+  }
 
   let digits = to.replace(/\D/g, '')
   if (digits.startsWith('0') && digits.length === 10) digits = `593${digits.slice(1)}`

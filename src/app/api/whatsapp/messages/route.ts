@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const contactId = searchParams.get('contactId')
     const jid = searchParams.get('jid')
+    if (jid?.endsWith('@g.us')) return NextResponse.json([])
 
     const messages = await prisma.whatsAppMessage.findMany({
       where: {

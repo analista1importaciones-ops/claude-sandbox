@@ -16,7 +16,10 @@ export async function GET() {
     const waConvs = await prisma.waConversation.findMany()
     const convMap = new Map(waConvs.map(c => [c.remoteJid, c]))
 
-    const BLOCKED = ['status@broadcast', 'broadcast']
+    const isBlockedJid = (jid: string | null | undefined) => {
+      if (!jid) return true
+      return jid.includes('status@broadcast') || jid.includes('@broadcast') || jid.endsWith('@g.us')
+    }
 
     const allContacts = await prisma.contact.findMany({ select: { id: true, name: true, phone: true } })
     const phoneMap = new Map<string, { id: string; name: string; phone: string | null }>()
@@ -27,6 +30,7 @@ export async function GET() {
     const contactByJid = new Map<string, { id: string; name: string; phone: string | null }>()
     const waNameByJid = new Map<string, string>()
     for (const m of all) {
+      if (isBlockedJid(m.remoteJid) || isBlockedJid(m.phoneJid)) continue
       if (m.contact && !contactByJid.has(m.remoteJid)) {
         contactByJid.set(m.remoteJid, m.contact)
       }
@@ -38,7 +42,7 @@ export async function GET() {
     const seen = new Set()
     const conversations = []
     for (const m of all) {
-      if (BLOCKED.some(b => m.remoteJid.includes(b))) continue
+      if (isBlockedJid(m.remoteJid) || isBlockedJid(m.phoneJid)) continue
       if (!seen.has(m.remoteJid)) {
         seen.add(m.remoteJid)
         const conv = convMap.get(m.remoteJid)

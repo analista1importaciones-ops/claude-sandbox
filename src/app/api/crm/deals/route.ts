@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ensureDefaultFunnels, legacyStageForFunnelStage } from '@/lib/funnels'
-import { findDealStageWorkflows, queueOrSendDealStageWorkflow } from '@/lib/workflows'
+import { startDealStageWorkflows } from '@/lib/workflows'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -88,20 +88,7 @@ export async function POST(req: NextRequest) {
 
   const funnelStageChanged = Boolean(funnelStage && previous?.funnelStageId !== funnelStage.id)
   if (funnelStage && (!previous || funnelStageChanged) && deal.contact) {
-    const workflows = await findDealStageWorkflows({
-      funnelStageId: funnelStage.id,
-      funnelId: funnelStage.funnelId,
-      stage: deal.stage,
-    })
-    const seen = new Set<string>()
-    for (const wf of workflows) {
-      if (deal.funnelId && wf.funnelId && wf.funnelId !== deal.funnelId) continue
-      const key = [wf.stage, wf.funnelId || '', wf.funnelStageId || '', wf.serviceTag || 'todos', wf.templateId || '', wf.delayDays, wf.delayHours, wf.delayMinutes].join('|')
-      if (seen.has(key)) continue
-      seen.add(key)
-      await queueOrSendDealStageWorkflow(wf, deal.contact, deal.id, deal.funnelStage?.name || deal.stage)
-        .catch(e => console.error('[Workflow] send failed', e))
-    }
+    await startDealStageWorkflows(deal, previous?.funnelStageId).catch(e => console.error('[Workflow] stage start failed', e))
   }
 
   return NextResponse.json(deal, { status: previous ? 200 : 201 })

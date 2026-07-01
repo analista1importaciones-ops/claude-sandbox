@@ -10,6 +10,9 @@ export async function POST(req: NextRequest) {
 
   const { to, body, contactId } = await req.json()
   if (!to || !body) return NextResponse.json({ error: 'to and body required' }, { status: 400 })
+  if (String(to).endsWith('@g.us')) {
+    return NextResponse.json({ error: 'No se permite enviar seguimientos a grupos.' }, { status: 400 })
+  }
 
   const jid = await sendWAMessage(to, body)
 

@@ -27,7 +27,9 @@ const SERVICE_TAGS = [
 
 interface Template { id: string; name: string; body: string; mediaUrl?: string | null; mediaType?: string | null; mediaName?: string | null }
 interface Funnel { id: string; name: string; stages: { id: string; name: string }[] }
-interface Workflow { id: string; name: string; trigger: string; stage: string | null; serviceTag: string | null; funnelId: string | null; funnelStageId: string | null; delayDays: number; delayHours: number; delayMinutes: number; active: boolean; template: Template | null; funnel?: { name: string } | null; funnelStage?: { name: string } | null }
+interface WorkflowStep { id: string; order: number; delayDays: number; delayHours: number; delayMinutes: number; template: Template | null; templateId?: string | null }
+interface WorkflowRun { id: string; status: string; startedAt: string; completedAt?: string | null; cancelledAt?: string | null; contact?: { name: string; phone: string | null } | null }
+interface Workflow { id: string; name: string; trigger: string; stage: string | null; serviceTag: string | null; funnelId: string | null; funnelStageId: string | null; delayDays: number; delayHours: number; delayMinutes: number; templateId?: string | null; active: boolean; template: Template | null; funnel?: { name: string } | null; funnelStage?: { name: string } | null; steps?: WorkflowStep[]; runs?: WorkflowRun[] }
 interface SequenceStep { delayDays: string; delayHours: string; delayMinutes: string; templateId: string }
 
 type Tab = 'workflows' | 'secuencias' | 'plantillas'
@@ -39,11 +41,6 @@ function formatDelay(days = 0, hours = 0, minutes = 0) {
     minutes > 0 ? `${minutes}min` : '',
   ].filter(Boolean)
   return parts.length > 0 ? parts.join(' ') : 'Inmediato'
-}
-
-function sequenceNameOf(name: string) {
-  const match = name.match(/^(.*) · Paso (\d+)$/)
-  return match ? { name: match[1], step: Number(match[2]) } : null
 }
 
 export default function WorkflowsPage() {
@@ -79,13 +76,16 @@ export default function WorkflowsPage() {
   const [tplMedia, setTplMedia] = useState<Pick<Template, 'mediaUrl' | 'mediaType' | 'mediaName'>>({})
   const [tplFile, setTplFile] = useState<File | null>(null)
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
+  const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null)
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([])
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState('')
 
   const load = async () => {
-    const [wRes, tRes, fRes] = await Promise.all([fetch('/api/workflows'), fetch('/api/templates'), fetch('/api/crm/funnels')])
+    const [wRes, tRes, fRes, rRes] = await Promise.all([fetch('/api/workflows'), fetch('/api/templates'), fetch('/api/crm/funnels'), fetch('/api/workflows/runs')])
     setWorkflows(await wRes.json())
     setTemplates(await tRes.json())
+    if (rRes.ok) setWorkflowRuns(await rRes.json())
     const funnelData = await fRes.json()
     setFunnels(funnelData)
     const first = funnelData.find((funnel: Funnel) => funnel.name === 'CARGAS') ?? funnelData[0]
@@ -117,6 +117,12 @@ export default function WorkflowsPage() {
         delayHours: Number(wfDelayHours) || 0,
         delayMinutes: Number(wfDelayMinutes) || 0,
         templateId: wfTemplateId,
+        steps: [{
+          delayDays: Number(wfDelayDays) || 0,
+          delayHours: Number(wfDelayHours) || 0,
+          delayMinutes: Number(wfDelayMinutes) || 0,
+          templateId: wfTemplateId,
+        }],
         active: true,
       }),
     })
@@ -137,31 +143,39 @@ export default function WorkflowsPage() {
     }
 
     setSaving(true)
-    const responses = await Promise.all(validSteps.map((step, index) => fetch('/api/workflows', {
-      method: 'POST',
+    const wasEditing = Boolean(editingWorkflowId)
+    const response = await fetch(editingWorkflowId ? `/api/workflows/${editingWorkflowId}` : '/api/workflows', {
+      method: editingWorkflowId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: `${sequenceName} · Paso ${index + 1}`,
+        name: sequenceName,
         trigger: sequenceTrigger,
         stage: null,
         serviceTag: sequenceFunnelId || sequenceServiceTag === 'Todos' ? null : sequenceServiceTag,
         funnelId: sequenceFunnelId || null,
         funnelStageId: sequenceTrigger === 'DEAL_STAGE_CHANGED' ? sequenceFunnelStageId || null : null,
-        delayDays: Number(step.delayDays) || 0,
-        delayHours: Number(step.delayHours) || 0,
-        delayMinutes: Number(step.delayMinutes) || 0,
-        templateId: step.templateId,
         active: true,
+        steps: validSteps.map(step => ({
+          delayDays: Number(step.delayDays) || 0,
+          delayHours: Number(step.delayHours) || 0,
+          delayMinutes: Number(step.delayMinutes) || 0,
+          templateId: step.templateId,
+        })),
+        delayDays: Number(validSteps[0]?.delayDays) || 0,
+        delayHours: Number(validSteps[0]?.delayHours) || 0,
+        delayMinutes: Number(validSteps[0]?.delayMinutes) || 0,
+        templateId: validSteps[0]?.templateId,
       }),
-    })))
+    })
     setSaving(false)
-    if (responses.some(response => !response.ok)) {
+    if (!response.ok) {
       setNotice('No se pudo guardar la secuencia completa. Revisa la etapa y las plantillas.')
       load()
       return
     }
 
     setSequenceName('')
+    setEditingWorkflowId(null)
     setSequenceTrigger('DEAL_STAGE_CHANGED')
     setSequenceServiceTag('Cursos')
     setSequenceSteps([
@@ -169,7 +183,7 @@ export default function WorkflowsPage() {
       { delayDays: '0', delayHours: '0', delayMinutes: '15', templateId: '' },
       { delayDays: '1', delayHours: '0', delayMinutes: '0', templateId: '' },
     ])
-    setNotice('Secuencia guardada. Sus pasos quedan agrupados abajo.')
+    setNotice(wasEditing ? 'Secuencia actualizada.' : 'Secuencia guardada como una sola automatización.')
     load()
   }
 
@@ -224,15 +238,43 @@ export default function WorkflowsPage() {
 
   const deleteWorkflow = async (id: string) => { await fetch(`/api/workflows/${id}`, { method: 'DELETE' }); load() }
   const deleteTemplate = async (id: string) => { await fetch(`/api/templates/${id}`, { method: 'DELETE' }); load() }
-  const toggleSequence = async (steps: Workflow[]) => {
-    const active = !steps.every(step => step.active)
-    await Promise.all(steps.map(step => fetch(`/api/workflows/${step.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active }) })))
+  const toggleSequence = async (workflow: Workflow) => {
+    await fetch(`/api/workflows/${workflow.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !workflow.active }) })
     load()
   }
-  const deleteSequence = async (steps: Workflow[]) => {
-    if (!confirm('¿Eliminar toda la secuencia y sus pasos?')) return
-    await Promise.all(steps.map(step => fetch(`/api/workflows/${step.id}`, { method: 'DELETE' })))
+  const deleteSequence = async (workflow: Workflow) => {
+    if (!confirm('¿Eliminar esta secuencia y todos sus pasos?')) return
+    await fetch(`/api/workflows/${workflow.id}`, { method: 'DELETE' })
     load()
+  }
+  const editSequence = (workflow: Workflow) => {
+    setEditingWorkflowId(workflow.id)
+    setSequenceName(workflow.name)
+    setSequenceTrigger(workflow.trigger)
+    setSequenceServiceTag(workflow.serviceTag || 'Todos')
+    setSequenceFunnelId(workflow.funnelId || '')
+    setSequenceFunnelStageId(workflow.funnelStageId || '')
+    const steps: SequenceStep[] = workflow.steps?.length
+      ? workflow.steps.map(step => ({
+        delayDays: String(step.delayDays || 0),
+        delayHours: String(step.delayHours || 0),
+        delayMinutes: String(step.delayMinutes || 0),
+        templateId: step.template?.id || step.templateId || '',
+      }))
+      : [{
+        delayDays: String(workflow.delayDays || 0),
+        delayHours: String(workflow.delayHours || 0),
+        delayMinutes: String(workflow.delayMinutes || 0),
+        templateId: workflow.template?.id || workflow.templateId || '',
+      }]
+    setSequenceSteps(steps.map(step => ({
+      delayDays: step.delayDays,
+      delayHours: step.delayHours,
+      delayMinutes: step.delayMinutes,
+      templateId: step.templateId,
+    })))
+    setActiveTab('secuencias')
+    setNotice('Editando secuencia. Ajusta los pasos y guarda.')
   }
   const runPending = async () => {
     const res = await fetch('/api/scheduled-messages/run', { method: 'POST' })
@@ -253,28 +295,14 @@ export default function WorkflowsPage() {
   }
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: 'workflows', label: 'Workflows', count: workflows.filter(workflow => !sequenceNameOf(workflow.name)).length },
-    { id: 'secuencias', label: 'Secuencias' },
+    { id: 'workflows', label: 'Workflows', count: workflows.length },
+    { id: 'secuencias', label: 'Secuencias', count: workflows.filter(workflow => (workflow.steps?.length || 0) > 1).length },
     { id: 'plantillas', label: 'Plantillas', count: templates.length },
   ]
 
   const wfFunnel = funnels.find(funnel => funnel.id === wfFunnelId)
   const sequenceFunnel = funnels.find(funnel => funnel.id === sequenceFunnelId)
-  const standaloneWorkflows = workflows.filter(workflow => !sequenceNameOf(workflow.name))
-  const sequences = useMemo(() => {
-    const groups = new Map<string, Workflow[]>()
-    workflows.forEach(workflow => {
-      const info = sequenceNameOf(workflow.name)
-      if (!info) return
-      const key = [info.name, workflow.funnelId || '', workflow.funnelStageId || '', workflow.trigger].join('|')
-      groups.set(key, [...(groups.get(key) || []), workflow])
-    })
-    return Array.from(groups.entries()).map(([key, steps]) => ({
-      key,
-      name: sequenceNameOf(steps[0].name)?.name || steps[0].name,
-      steps: steps.sort((a, b) => (sequenceNameOf(a.name)?.step || 0) - (sequenceNameOf(b.name)?.step || 0)),
-    }))
-  }, [workflows])
+  const sequences = useMemo(() => workflows.filter(workflow => (workflow.steps?.length || 0) > 1), [workflows])
 
   return (
     <div className="p-0 sm:p-3 md:p-6 max-w-5xl mx-auto">
@@ -403,12 +431,14 @@ export default function WorkflowsPage() {
             </div>
           )}
 
-          {standaloneWorkflows.length === 0 && (
+          {workflows.length === 0 && (
             <div className="bg-white border border-dashed border-gray-200 rounded-xl p-8 text-center">
               <p className="text-sm text-gray-400">No hay workflows configurados.</p>
             </div>
           )}
-          {standaloneWorkflows.map(wf => (
+          {workflows.map(wf => {
+            const steps = wf.steps?.length ? wf.steps : [{ id: wf.id, order: 1, delayDays: wf.delayDays, delayHours: wf.delayHours, delayMinutes: wf.delayMinutes, template: wf.template }]
+            return (
             <div key={wf.id} className="bg-white border border-gray-200 rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium text-gray-800">{wf.name}</p>
@@ -416,19 +446,21 @@ export default function WorkflowsPage() {
                   {wf.trigger === 'CONTACT_CREATED'
                     ? <>Contacto creado</>
                     : <>Al entrar en <span className="font-medium text-gray-600">{wf.funnel?.name ? `${wf.funnel.name} / ${wf.funnelStage?.name || 'etapa'}` : STAGES.find(s => s.value === wf.stage)?.label ?? wf.stage}</span></>}
-                  {' '}· <span className="font-medium text-gray-600">{formatDelay(wf.delayDays, wf.delayHours, wf.delayMinutes)}</span>
+                  {' '}· <span className="font-medium text-gray-600">{steps.length} paso{steps.length === 1 ? '' : 's'}</span>
                   {!wf.funnelId && <> · <span className="font-medium text-gray-600">{wf.serviceTag ?? 'Todos los servicios'}</span></>}
-                  {wf.template && <> · <span className="font-medium text-gray-600">{wf.template.name}</span></>}
+                  {steps[0]?.template && <> · <span className="font-medium text-gray-600">{steps[0].template.name}</span></>}
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => toggleWorkflow(wf)} className={`relative w-10 h-5 rounded-full transition-colors ${wf.active ? 'bg-green-500' : 'bg-gray-300'}`}>
                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${wf.active ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
+                <button onClick={() => editSequence(wf)} className="text-blue-600 hover:text-blue-800 text-sm">Editar</button>
                 <button onClick={() => deleteWorkflow(wf.id)} className="text-gray-400 hover:text-red-500 text-sm">Eliminar</button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </section>
       )}
 
@@ -438,26 +470,31 @@ export default function WorkflowsPage() {
           {sequences.length > 0 && (
             <div className="space-y-3">
               {sequences.map(sequence => {
-                const first = sequence.steps[0]
-                const enabled = sequence.steps.every(step => step.active)
+                const first = sequence.steps?.[0]
                 return (
-                  <div key={sequence.key} className="rounded-lg border border-gray-200 bg-white p-4">
+                  <div key={sequence.id} className="rounded-lg border border-gray-200 bg-white p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="font-semibold text-gray-800">{sequence.name}</p>
                         <p className="mt-1 text-xs text-gray-500">
-                          {first.funnel?.name || first.serviceTag || 'Todos'} / {first.funnelStage?.name || STAGES.find(stage => stage.value === first.stage)?.label || 'Contacto creado'} · {sequence.steps.length} pasos
+                          {sequence.funnel?.name || sequence.serviceTag || 'Todos'} / {sequence.funnelStage?.name || STAGES.find(stage => stage.value === sequence.stage)?.label || 'Contacto creado'} · {sequence.steps?.length || 0} pasos
                         </p>
+                        {sequence.runs?.[0] && (
+                          <p className="mt-1 text-xs text-gray-400">
+                            Última ejecución: {sequence.runs[0].status} · {sequence.runs[0].contact?.name || 'cliente'}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <button onClick={() => toggleSequence(sequence.steps)} className={`relative h-5 w-10 rounded-full ${enabled ? 'bg-green-500' : 'bg-gray-300'}`} aria-label={enabled ? 'Desactivar secuencia' : 'Activar secuencia'}>
-                          <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        <button onClick={() => toggleSequence(sequence)} className={`relative h-5 w-10 rounded-full ${sequence.active ? 'bg-green-500' : 'bg-gray-300'}`} aria-label={sequence.active ? 'Desactivar secuencia' : 'Activar secuencia'}>
+                          <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sequence.active ? 'translate-x-5' : 'translate-x-0.5'}`} />
                         </button>
-                        <button onClick={() => deleteSequence(sequence.steps)} className="text-sm text-gray-400 hover:text-red-500">Eliminar</button>
+                        <button onClick={() => editSequence(sequence)} className="text-sm text-blue-600 hover:text-blue-800">Editar</button>
+                        <button onClick={() => deleteSequence(sequence)} className="text-sm text-gray-400 hover:text-red-500">Eliminar</button>
                       </div>
                     </div>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {sequence.steps.map((step, index) => (
+                      {sequence.steps?.map((step, index) => (
                         <div key={step.id} className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
                           <span className="font-medium">Paso {index + 1}</span> · {formatDelay(step.delayDays, step.delayHours, step.delayMinutes)}<br />
                           <span className="text-gray-400">{step.template?.name || 'Sin plantilla'}</span>
@@ -476,7 +513,7 @@ export default function WorkflowsPage() {
               <h2 className="text-lg font-semibold text-gray-800">Secuencia por servicio</h2>
               <p className="text-sm text-gray-500 mt-1">Elige un embudo y la etapa que inicia el seguimiento. Los pasos se ejecutan una sola vez en los tiempos indicados.</p>
             </div>
-            <button disabled={saving} onClick={saveSequence} className="px-4 py-2 bg-gtl-navy text-white rounded-lg text-sm font-medium hover:bg-gtl-navy-dark whitespace-nowrap disabled:opacity-50">{saving ? 'Guardando...' : 'Crear secuencia'}</button>
+            <button disabled={saving} onClick={saveSequence} className="px-4 py-2 bg-gtl-navy text-white rounded-lg text-sm font-medium hover:bg-gtl-navy-dark whitespace-nowrap disabled:opacity-50">{saving ? 'Guardando...' : editingWorkflowId ? 'Actualizar secuencia' : 'Crear secuencia'}</button>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
@@ -547,6 +584,25 @@ export default function WorkflowsPage() {
           </div>
 
           <button onClick={addSequenceStep} className="mt-3 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">+ Añadir paso</button>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5">
+            <h2 className="text-lg font-semibold text-gray-800">Historial reciente</h2>
+            <p className="mt-1 text-sm text-gray-500">Últimas ejecuciones de secuencias por cliente.</p>
+            <div className="mt-3 space-y-2">
+              {workflowRuns.length === 0 && <p className="text-xs text-gray-400">Todavía no hay ejecuciones registradas.</p>}
+              {workflowRuns.slice(0, 12).map(run => (
+                <div key={run.id} className="flex flex-col gap-1 rounded-md bg-gray-50 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-medium text-gray-700">{run.contact?.name || 'Cliente'} {run.contact?.phone ? `· ${run.contact.phone}` : ''}</span>
+                  <span className={`font-semibold ${
+                    run.status === 'COMPLETED' ? 'text-green-600' :
+                    run.status === 'CANCELLED' ? 'text-amber-600' :
+                    run.status === 'FAILED' ? 'text-red-600' :
+                    'text-blue-600'
+                  }`}>{run.status}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}

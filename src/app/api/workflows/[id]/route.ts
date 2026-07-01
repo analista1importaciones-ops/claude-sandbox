@@ -10,6 +10,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const funnelStage = body.funnelStageId
     ? await prisma.funnelStage.findUnique({ where: { id: body.funnelStageId } })
     : null
+  const rawSteps = Array.isArray(body.steps) ? body.steps : null
+  const steps = rawSteps
+    ?.filter((step: { templateId?: string }) => step.templateId)
+    .map((step: { delayDays?: unknown; delayHours?: unknown; delayMinutes?: unknown; templateId?: string }, index: number) => ({
+      order: index + 1,
+      delayDays: Number(step.delayDays || 0),
+      delayHours: Number(step.delayHours || 0),
+      delayMinutes: Number(step.delayMinutes || 0),
+      templateId: step.templateId || null,
+    }))
+  if (rawSteps && (!steps || steps.length === 0)) {
+    return NextResponse.json({ error: 'Agrega al menos una plantilla a la secuencia.' }, { status: 400 })
+  }
   const data = {
     ...(body.name !== undefined ? { name: body.name } : {}),
     ...(body.trigger !== undefined ? { trigger: body.trigger } : {}),
@@ -19,16 +32,33 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     ...(body.serviceTag !== undefined ? {
       serviceTag: funnelStage || !body.serviceTag || ['Todos', 'Todos los servicios'].includes(body.serviceTag) ? null : body.serviceTag,
     } : {}),
-    ...(body.delayDays !== undefined ? { delayDays: Number(body.delayDays || 0) } : {}),
-    ...(body.delayHours !== undefined ? { delayHours: Number(body.delayHours || 0) } : {}),
-    ...(body.delayMinutes !== undefined ? { delayMinutes: Number(body.delayMinutes || 0) } : {}),
-    ...(body.templateId !== undefined ? { templateId: body.templateId || null } : {}),
+    ...(body.delayDays !== undefined || steps ? { delayDays: Number(steps?.[0]?.delayDays ?? body.delayDays ?? 0) } : {}),
+    ...(body.delayHours !== undefined || steps ? { delayHours: Number(steps?.[0]?.delayHours ?? body.delayHours ?? 0) } : {}),
+    ...(body.delayMinutes !== undefined || steps ? { delayMinutes: Number(steps?.[0]?.delayMinutes ?? body.delayMinutes ?? 0) } : {}),
+    ...(body.templateId !== undefined || steps ? { templateId: steps?.[0]?.templateId || body.templateId || null } : {}),
     ...(body.active !== undefined ? { active: body.active } : {}),
   }
-  const wf = await prisma.workflow.update({
-    where: { id: params.id },
-    data,
-    include: { template: true, funnel: true, funnelStage: true },
+  const wf = await prisma.$transaction(async tx => {
+    await tx.workflow.update({ where: { id: params.id }, data })
+    if (steps) {
+      await tx.workflowStep.deleteMany({ where: { workflowId: params.id } })
+      await tx.workflowStep.createMany({
+        data: steps.map((step: { order: number; delayDays: number; delayHours: number; delayMinutes: number; templateId: string | null }) => ({
+          ...step,
+          workflowId: params.id,
+        })),
+      })
+    }
+    return tx.workflow.findUniqueOrThrow({
+      where: { id: params.id },
+      include: {
+        template: true,
+        funnel: true,
+        funnelStage: true,
+        steps: { include: { template: true }, orderBy: { order: 'asc' } },
+        runs: { orderBy: { createdAt: 'desc' }, take: 3, include: { contact: { select: { name: true, phone: true } } } },
+      },
+    })
   })
   return NextResponse.json(wf)
 }

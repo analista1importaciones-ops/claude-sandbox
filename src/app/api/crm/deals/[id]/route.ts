@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { findDealStageWorkflows, queueOrSendDealStageWorkflow } from '@/lib/workflows'
+import { startDealStageWorkflows } from '@/lib/workflows'
 import { legacyStageForFunnelStage } from '@/lib/funnels'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -40,22 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const stageChanged = Boolean(body.stage && previous?.stage !== body.stage)
   const funnelStageChanged = Boolean(nextFunnelStage && previous?.funnelStageId !== nextFunnelStage.id)
   if (stageChanged || funnelStageChanged) {
-    const workflows = await findDealStageWorkflows({
-      funnelStageId: nextFunnelStage?.id ?? deal.funnelStageId,
-      funnelId: nextFunnelStage?.funnelId ?? deal.funnelId,
-      stage: deal.stage,
-    })
-    const seen = new Set<string>()
-    for (const wf of workflows) {
-      if (deal.funnelId && wf.funnelId && wf.funnelId !== deal.funnelId) continue
-      const key = [wf.stage, wf.funnelId || '', wf.funnelStageId || '', wf.serviceTag || 'todos', wf.templateId || '', wf.delayDays, wf.delayHours, wf.delayMinutes].join('|')
-      if (seen.has(key)) continue
-      seen.add(key)
-      if (deal.contact) {
-        await queueOrSendDealStageWorkflow(wf, deal.contact, deal.id, deal.funnelStage?.name || deal.stage)
-          .catch(e => console.error('[Workflow] send failed', e))
-      }
-    }
+    await startDealStageWorkflows(deal, previous?.funnelStageId).catch(e => console.error('[Workflow] stage start failed', e))
   }
   return NextResponse.json(deal)
 }
