@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       timestamp: new Date(),
       contactId: contactId || null,
     },
-    data: {
+    create: {
       remoteJid: jid,
       fromMe: true,
       content: body,

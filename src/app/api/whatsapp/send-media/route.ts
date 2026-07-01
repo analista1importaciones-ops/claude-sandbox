@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       mediaUrl, mediaType,
       contactId: contactId || null,
     },
-    data: {
+    create: {
       remoteJid: jid, fromMe: true,
       content: caption || name,
       messageId,

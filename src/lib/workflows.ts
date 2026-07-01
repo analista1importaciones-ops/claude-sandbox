@@ -110,6 +110,21 @@ function getWhatsAppJid(phone: string) {
   return `${digits}@s.whatsapp.net`
 }
 
+async function resolveWhatsAppJid(contact: WorkflowContact) {
+  if (contact.phone) return getWhatsAppJid(contact.phone)
+
+  const message = await prisma.whatsAppMessage.findFirst({
+    where: {
+      contactId: contact.id,
+      NOT: { remoteJid: { endsWith: '@g.us' } },
+    },
+    orderBy: { timestamp: 'desc' },
+    select: { remoteJid: true, phoneJid: true },
+  })
+
+  return message?.phoneJid || message?.remoteJid || null
+}
+
 function stepDelayMinutes(step: WorkflowStepWithTemplate) {
   return Math.max(0,
     (step.delayDays || 0) * 24 * 60 +
@@ -241,12 +256,13 @@ async function createWorkflowRunMessages(
   toStageId?: string | null,
   enteredAt = new Date()
 ) {
-  if (!contact.phone || !workflow.id) return { skipped: 'missing_phone_or_workflow' }
+  if (!workflow.id) return { skipped: 'missing_workflow' }
 
   const steps = workflowSteps(workflow)
   if (steps.length === 0) return { skipped: 'missing_steps_or_template' }
 
-  const jid = getWhatsAppJid(contact.phone)
+  const jid = await resolveWhatsAppJid(contact)
+  if (!jid) return { skipped: 'missing_whatsapp_recipient' }
   const run = await prisma.workflowRun.create({
     data: {
       key: runKey(workflow, context.dealId, contact.id, fromStageId, toStageId, enteredAt),

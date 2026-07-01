@@ -212,7 +212,7 @@ export async function startWhatsApp(options: { manual?: boolean } = {}) {
               mediaType: mediaData?.mediaType ?? null,
               waName: pushName,
             },
-            data: {
+            create: {
               remoteJid: jid,
               fromMe,
               content,
