@@ -292,7 +292,7 @@ export async function sendWAMessage(to: string, body: string) {
   return jid
 }
 
-export async function sendWAMediaMessage(to: string, body: string, mediaUrl: string, mediaType: string | null | undefined, mediaName?: string | null) {
+export async function sendWAMediaMessageWithResult(to: string, body: string, mediaUrl: string, mediaType: string | null | undefined, mediaName?: string | null) {
   const sock = await ensureWhatsAppReady()
   const jid = normalizeRecipient(to)
   const source = getWAMediaSource(mediaUrl)
@@ -300,10 +300,11 @@ export async function sendWAMediaMessage(to: string, body: string, mediaUrl: str
   const kind = mediaType || 'document'
 
   try {
+    let sent
     if (kind === 'image') {
-      await sock.sendMessage(jid, { image: source, caption })
+      sent = await sock.sendMessage(jid, { image: source, caption })
     } else if (kind === 'video') {
-      await sock.sendMessage(jid, { video: source, caption })
+      sent = await sock.sendMessage(jid, { video: source, caption })
     } else if (kind === 'audio') {
       const extension = path.extname(mediaName || mediaUrl).toLowerCase()
       const mimetype = extension === '.mp3' ? 'audio/mpeg'
@@ -311,21 +312,26 @@ export async function sendWAMediaMessage(to: string, body: string, mediaUrl: str
           : extension === '.m4a' || extension === '.mp4' ? 'audio/mp4'
             : extension === '.webm' ? 'audio/webm'
               : 'audio/ogg; codecs=opus'
-      await sock.sendMessage(jid, { audio: source, mimetype, ptt: false })
+      sent = await sock.sendMessage(jid, { audio: source, mimetype, ptt: false })
       if (body) await sock.sendMessage(jid, { text: body })
     } else {
-      await sock.sendMessage(jid, {
+      sent = await sock.sendMessage(jid, {
         document: source,
         fileName: mediaName || path.basename(mediaUrl),
         mimetype: 'application/octet-stream',
         caption,
       })
     }
-    return jid
+    return { jid, messageId: sent?.key?.id ?? `media-${Date.now()}` }
   } catch (error) {
     global.__waStatus = 'disconnected'
     global.__waSock = null
     scheduleReconnect()
     throw error
   }
+}
+
+export async function sendWAMediaMessage(to: string, body: string, mediaUrl: string, mediaType: string | null | undefined, mediaName?: string | null) {
+  const { jid } = await sendWAMediaMessageWithResult(to, body, mediaUrl, mediaType, mediaName)
+  return jid
 }

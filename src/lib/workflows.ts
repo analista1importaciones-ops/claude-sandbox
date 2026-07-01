@@ -1,5 +1,5 @@
 import { prisma } from './prisma'
-import { sendWAMediaMessage, sendWAMessage } from './whatsapp'
+import { sendWAMediaMessageWithResult, sendWAMessageWithResult } from './whatsapp'
 import { generateCRMWhatsAppMessage } from './openai'
 
 type WorkflowTemplate = {
@@ -406,16 +406,26 @@ export async function runDueScheduledMessages() {
     if (claimed.count === 0) continue
 
     try {
-      const jid = message.mediaUrl
-        ? await sendWAMediaMessage(message.remoteJid, message.body, message.mediaUrl, message.mediaType, message.mediaName)
-        : await sendWAMessage(message.remoteJid, message.body)
+      const sentResult = message.mediaUrl
+        ? await sendWAMediaMessageWithResult(message.remoteJid, message.body, message.mediaUrl, message.mediaType, message.mediaName)
+        : await sendWAMessageWithResult(message.remoteJid, message.body)
 
-      await prisma.whatsAppMessage.create({
-        data: {
-          remoteJid: jid,
+      await prisma.whatsAppMessage.upsert({
+        where: { messageId: sentResult.messageId },
+        update: {
+          remoteJid: sentResult.jid,
           fromMe: true,
           content: message.body,
-          messageId: `sched_${message.id}_${Date.now()}`,
+          timestamp: new Date(),
+          contactId: message.contactId,
+          mediaUrl: message.mediaUrl,
+          mediaType: message.mediaType,
+        },
+        create: {
+          remoteJid: sentResult.jid,
+          fromMe: true,
+          content: message.body,
+          messageId: sentResult.messageId,
           timestamp: new Date(),
           contactId: message.contactId,
           mediaUrl: message.mediaUrl,
