@@ -15,7 +15,10 @@ export async function GET(req: NextRequest) {
 
     const relatedMessage = !contactId && jid
       ? await prisma.whatsAppMessage.findFirst({
-        where: { OR: [{ remoteJid: jid }, { phoneJid: jid }] },
+        where: {
+          OR: [{ remoteJid: jid }, { phoneJid: jid }],
+          contactId: { not: null },
+        },
         orderBy: { timestamp: 'desc' },
         select: { contactId: true },
       })

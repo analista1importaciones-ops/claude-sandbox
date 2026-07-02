@@ -28,11 +28,15 @@ export async function GET() {
     }
 
     const contactByJid = new Map<string, { id: string; name: string; phone: string | null }>()
+    const contactByPhoneJid = new Map<string, { id: string; name: string; phone: string | null }>()
     const waNameByJid = new Map<string, string>()
     for (const m of all) {
       if (isBlockedJid(m.remoteJid) || isBlockedJid(m.phoneJid)) continue
       if (m.contact && !contactByJid.has(m.remoteJid)) {
         contactByJid.set(m.remoteJid, m.contact)
+      }
+      if (m.contact && m.phoneJid && !contactByPhoneJid.has(m.phoneJid)) {
+        contactByPhoneJid.set(m.phoneJid, m.contact)
       }
       if (!m.fromMe && m.waName && !waNameByJid.has(m.remoteJid)) {
         waNameByJid.set(m.remoteJid, m.waName)
@@ -40,22 +44,26 @@ export async function GET() {
     }
 
     const canonicalJidByContact = new Map<string, string>()
+    const canonicalJidByPhone = new Map<string, string>()
     for (const m of all) {
-      if (isBlockedJid(m.remoteJid) || !m.contactId || m.fromMe) continue
-      if (!canonicalJidByContact.has(m.contactId)) canonicalJidByContact.set(m.contactId, m.remoteJid)
+      if (isBlockedJid(m.remoteJid) || m.fromMe) continue
+      if (m.contactId && !canonicalJidByContact.has(m.contactId)) canonicalJidByContact.set(m.contactId, m.remoteJid)
+      if (m.phoneJid && !canonicalJidByPhone.has(m.phoneJid)) canonicalJidByPhone.set(m.phoneJid, m.remoteJid)
     }
 
     const seen = new Set()
     const conversations = []
     for (const m of all) {
       if (isBlockedJid(m.remoteJid) || isBlockedJid(m.phoneJid)) continue
-      const canonicalJid = m.contactId ? canonicalJidByContact.get(m.contactId) ?? m.remoteJid : m.remoteJid
-      const conversationKey = m.contactId ? `contact:${m.contactId}` : m.phoneJid ? `phone:${m.phoneJid}` : `jid:${m.remoteJid}`
+      const canonicalJid = (m.phoneJid ? canonicalJidByPhone.get(m.phoneJid) : null)
+        ?? (m.contactId ? canonicalJidByContact.get(m.contactId) : null)
+        ?? m.remoteJid
+      const conversationKey = m.phoneJid ? `phone:${m.phoneJid}` : m.contactId ? `contact:${m.contactId}` : `jid:${m.remoteJid}`
       if (!seen.has(conversationKey)) {
         seen.add(conversationKey)
         const conv = convMap.get(canonicalJid) ?? convMap.get(m.remoteJid)
-        let contact = contactByJid.get(m.remoteJid) ?? m.contact
         const phoneJid = m.phoneJid ?? conv?.phoneJid ?? (m.remoteJid.endsWith('@s.whatsapp.net') ? m.remoteJid : null)
+        let contact = contactByJid.get(canonicalJid) ?? contactByJid.get(m.remoteJid) ?? (phoneJid ? contactByPhoneJid.get(phoneJid) : null) ?? m.contact
         if (!contact && phoneJid) {
           const phone = phoneJid.replace('@s.whatsapp.net', '').replace('@g.us', '')
           const found = phoneMap.get(phone.slice(-8))

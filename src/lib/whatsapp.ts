@@ -207,7 +207,7 @@ export async function startWhatsApp(options: { manual?: boolean } = {}) {
               content,
               phoneJid,
               timestamp: new Date(Number(msg.messageTimestamp) * 1000),
-              contactId: contact?.id ?? null,
+              contactId: contact?.id ?? undefined,
               mediaUrl: mediaData?.mediaUrl ?? null,
               mediaType: mediaData?.mediaType ?? null,
               waName: pushName,
