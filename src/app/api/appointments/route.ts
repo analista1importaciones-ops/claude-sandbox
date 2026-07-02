@@ -12,7 +12,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   return NextResponse.json(await prisma.appointment.findMany({
     orderBy: { startAt: 'asc' },
-    include: { contact: { select: { name: true, phone: true } } },
+    include: { contact: { select: { name: true, phone: true, assignedTo: { select: { id: true, name: true } } } } },
   }))
 }
 
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
-  const { title, description, startAt, endAt, contactId, contactName, remoteJid, notifyClient } = body
+  const { title, description, startAt, endAt, contactId, contactName, remoteJid, notifyClient, assignedToId } = body
   const shouldNotifyClient = notifyClient ?? Boolean(remoteJid)
   const startDate = new Date(startAt)
   const endDate = new Date(endAt)
@@ -45,6 +45,10 @@ export async function POST(req: NextRequest) {
       where: { remoteJid },
       data: { contactId: contact.id },
     })
+  }
+  const advisorId = assignedToId || contact?.assignedToId || (session.user as { id?: string })?.id || null
+  if (contact && advisorId && contact.assignedToId !== advisorId) {
+    contact = await prisma.contact.update({ where: { id: contact.id }, data: { assignedToId: advisorId } })
   }
   let googleEventId: string | null = null
   try {

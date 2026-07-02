@@ -6,7 +6,7 @@ interface Appointment {
   id: string; title: string; description: string | null
   startAt: string; endAt: string; remoteJid: string | null
   googleEventId: string | null; notified: boolean
-  contact: { name: string; phone: string | null } | null
+  contact: { name: string; phone: string | null; assignedTo: { id: string; name: string } | null } | null
 }
 
 export default function AppointmentsPage() {
@@ -45,6 +45,7 @@ function Card({ apt, fmt, upcoming }: { apt: Appointment; fmt: (s: string) => st
           <div>
             <p className="font-semibold text-gray-900">{apt.title}</p>
             {apt.contact && <p className="text-sm text-gray-500">{apt.contact.name}{apt.contact.phone ? ` · ${apt.contact.phone}` : ''}</p>}
+            <p className="text-xs text-indigo-600 mt-1">Asesor: {apt.contact?.assignedTo?.name || 'Sin asignar'}</p>
             {apt.description && <p className="text-sm text-gray-600 mt-1">{apt.description}</p>}
           </div>
           <div className="text-right flex-shrink-0">

@@ -11,6 +11,7 @@ interface InternalNote { id: string; content: string; createdAt: string }
 interface ScheduledMsg { id: string; body: string; sendAt: string; sent: boolean; mediaUrl: string | null; mediaType: string | null; mediaName: string | null }
 interface FunnelStage { id: string; name: string; order: number; color: string }
 interface Funnel { id: string; name: string; stages: FunnelStage[] }
+interface Advisor { id: string; name: string; email: string }
 
 const FUNNEL_SERVICE_MAP: Record<string, { serviceLabel: string; tag: string }> = {
   CARGAS: { serviceLabel: 'CARGA', tag: 'Carga' },
@@ -105,6 +106,8 @@ export default function WhatsAppPage() {
   const [apptStart, setApptStart] = useState('')
   const [apptEnd, setApptEnd] = useState('')
   const [apptNotify, setApptNotify] = useState(true)
+  const [advisors, setAdvisors] = useState<Advisor[]>([])
+  const [apptAdvisorId, setApptAdvisorId] = useState('')
   const [showQRPicker, setShowQRPicker] = useState(false)
   const [attachFile, setAttachFile] = useState<File | null>(null)
   const [convSearch, setConvSearch] = useState('')
@@ -503,12 +506,13 @@ export default function WhatsAppPage() {
   }
   async function createAppointment() {
     if (!apptTitle.trim() || !apptStart || !apptEnd) return
-    await fetch('/api/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: apptTitle, description: apptDesc, startAt: new Date(apptStart).toISOString(), endAt: new Date(apptEnd).toISOString(), contactId: linkedContact?.id, contactName: selectedConv?.contact?.name ?? selectedConv?.waName, remoteJid: apptNotify ? selectedJid : undefined, notifyClient: apptNotify }) })
+    await fetch('/api/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: apptTitle, description: apptDesc, startAt: new Date(apptStart).toISOString(), endAt: new Date(apptEnd).toISOString(), contactId: linkedContact?.id, contactName: selectedConv?.contact?.name ?? selectedConv?.waName, remoteJid: apptNotify ? selectedJid : undefined, notifyClient: apptNotify, assignedToId: apptAdvisorId || undefined }) })
     setApptTitle(''); setApptDesc(''); setApptStart(''); setApptEnd(''); setShowApptModal(false)
   }
 
   useEffect(() => {
     pollStatus(); loadConversations(); loadContacts(); loadFunnels(); loadQuickReplies()
+    fetch('/api/users').then(res => res.ok ? res.json() : []).then(data => setAdvisors(Array.isArray(data) ? data : []))
     const si = setInterval(pollStatus, 5000)
     const sc = setInterval(loadConversations, 5000)
     return () => { clearInterval(si); clearInterval(sc) }
@@ -935,6 +939,13 @@ export default function WhatsAppPage() {
             <div className="space-y-3">
               <input type="text" value={apptTitle} onChange={e => setApptTitle(e.target.value)} placeholder="Titulo de la cita" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
               <textarea value={apptDesc} onChange={e => setApptDesc(e.target.value)} placeholder="Descripcion (opcional)" rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-400" />
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Asesor responsable</label>
+                <select value={apptAdvisorId} onChange={e => setApptAdvisorId(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                  <option value="">Asignarme automáticamente</option>
+                  {advisors.map(advisor => <option key={advisor.id} value={advisor.id}>{advisor.name}</option>)}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Inicio</label>
