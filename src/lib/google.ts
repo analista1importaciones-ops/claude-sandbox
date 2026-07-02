@@ -50,3 +50,32 @@ export async function createCalendarEvent(opts: {
   })
   return event.data.id
 }
+
+export async function updateCalendarEvent(eventId: string, opts: {
+  title: string
+  description?: string
+  startAt: Date
+  endAt: Date
+  attendeeEmail?: string
+}) {
+  const auth = await getAuthedClient()
+  const calendar = google.calendar({ version: 'v3', auth })
+  await calendar.events.update({
+    calendarId: 'primary',
+    eventId,
+    sendUpdates: opts.attendeeEmail ? 'all' : 'none',
+    requestBody: {
+      summary: opts.title,
+      description: opts.description,
+      start: { dateTime: opts.startAt.toISOString(), timeZone: 'America/Guayaquil' },
+      end: { dateTime: opts.endAt.toISOString(), timeZone: 'America/Guayaquil' },
+      attendees: opts.attendeeEmail ? [{ email: opts.attendeeEmail }] : [],
+    },
+  })
+}
+
+export async function deleteCalendarEvent(eventId: string) {
+  const auth = await getAuthedClient()
+  const calendar = google.calendar({ version: 'v3', auth })
+  await calendar.events.delete({ calendarId: 'primary', eventId, sendUpdates: 'all' })
+}
