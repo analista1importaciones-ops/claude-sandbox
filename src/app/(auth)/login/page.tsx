@@ -39,7 +39,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gtl-navy rounded-2xl mb-4">
             <span className="text-white text-2xl font-bold">GTL</span>
           </div>
-          <h1 className="text-2xl font-bold text-gtl-navy">GTL Rate Manager</h1>
+          <h1 className="text-2xl font-bold text-gtl-navy">GTL OS</h1>
           <p className="text-gray-500 text-sm mt-1">Global Trade Logistics S.A.S.</p>
         </div>
 

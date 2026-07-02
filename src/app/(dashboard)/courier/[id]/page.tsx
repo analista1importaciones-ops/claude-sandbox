@@ -97,7 +97,7 @@ export default async function CourierDetailPage({ params }: { params: { id: stri
           <h2 className="text-sm font-semibold text-gray-500 uppercase">Cliente</h2>
           {contact && (
             <Link href={`/crm/contacts/${contact.id}`} className="text-xs font-medium text-gtl-navy hover:underline">
-              Ver perfil CRM →
+              Ver perfil en GTL OS →
             </Link>
           )}
         </div>
@@ -184,7 +184,7 @@ export default async function CourierDetailPage({ params }: { params: { id: stri
       )}
 
       <div className="text-xs text-gray-400 pb-8 text-center">
-        Generado por GTL Rate Manager · {q.createdBy.name}
+        Generado por GTL OS · {q.createdBy.name}
       </div>
     </div>
   )

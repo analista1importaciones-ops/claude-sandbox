@@ -112,7 +112,7 @@ export default function EditServiceInvoicePage() {
 
   async function createContactFromInvoice() {
     if (!customerName.trim()) {
-      setError('Escribe el nombre del cliente antes de crearlo en CRM.')
+      setError('Escribe el nombre del cliente antes de crearlo en GTL OS.')
       return
     }
     setCreatingContact(true)
@@ -201,7 +201,7 @@ export default function EditServiceInvoicePage() {
               </select>
               {!contactId && (
                 <button type="button" onClick={createContactFromInvoice} disabled={creatingContact || !customerName.trim()} className="md:col-span-2 px-3 py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 disabled:opacity-50">
-                  {creatingContact ? 'Creando cliente...' : '+ Crear cliente CRM con estos datos'}
+                  {creatingContact ? 'Creando cliente...' : '+ Crear cliente en GTL OS con estos datos'}
                 </button>
               )}
               <input value={customerName} onChange={e => setCustomerName(e.target.value)} className={inputClass} placeholder="Nombre del cliente *" />

@@ -26,7 +26,7 @@ export default function SettingsPage() {
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
-        <p className="text-gray-500 text-sm mt-1">Parámetros del sistema GTL Rate Manager</p>
+        <p className="text-gray-500 text-sm mt-1">Parámetros del sistema GTL OS</p>
       </div>
 
       {/* Email notifications */}
@@ -54,7 +54,7 @@ export default function SettingsPage() {
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 mb-5">
           <strong>Para activar:</strong> Agrega <code className="bg-amber-100 px-1 rounded">RESEND_API_KEY</code> en las variables de entorno de Vercel.
           Regístrate en <strong>resend.com</strong> para obtener una API key gratuita (100 emails/día).
-          Luego agrega <code className="bg-amber-100 px-1 rounded">EMAIL_FROM</code> con el remitente verificado, ej: <em>GTL Rate &lt;noreply@tudominio.com&gt;</em>
+          Luego agrega <code className="bg-amber-100 px-1 rounded">EMAIL_FROM</code> con el remitente verificado, ej: <em>GTL OS &lt;noreply@tudominio.com&gt;</em>
         </div>
 
         <div>
@@ -84,7 +84,7 @@ export default function SettingsPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">Versión</h2>
         <div className="space-y-2 text-sm text-gray-600">
-          <div className="flex justify-between"><span>GTL Rate Manager</span><span className="font-mono text-gray-400">v0.3.0</span></div>
+          <div className="flex justify-between"><span>GTL OS</span><span className="font-mono text-gray-400">v0.3.0</span></div>
           <div className="flex justify-between"><span>Sprint</span><span className="text-gray-400">Sprint 3</span></div>
         </div>
       </div>

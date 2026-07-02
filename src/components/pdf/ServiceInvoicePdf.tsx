@@ -173,7 +173,7 @@ export default function ServiceInvoicePdf(props: ServiceInvoicePdfProps) {
         </View>
 
         <View style={s.footer}>
-          <Text style={s.footerText}>GTL Global Trade Logistics S.A.S. · Ecuador · Documento de cobro generado desde GTL CRM</Text>
+          <Text style={s.footerText}>GTL Global Trade Logistics S.A.S. · Ecuador · Documento de cobro generado desde GTL OS</Text>
         </View>
       </Page>
     </Document>

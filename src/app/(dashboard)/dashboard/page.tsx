@@ -127,7 +127,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-semibold text-gray-700">Flujo operativo conectado</h2>
-              <p className="text-xs text-gray-400 mt-0.5">De tarifa a cotización, CRM, workflow y WhatsApp.</p>
+              <p className="text-xs text-gray-400 mt-0.5">De tarifa a cotización, GTL OS, workflow y WhatsApp.</p>
             </div>
             <Link href="/crm/pipeline" className="text-xs text-gtl-navy hover:underline">
               {openDeals} deals abiertos →

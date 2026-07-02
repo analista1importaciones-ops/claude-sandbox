@@ -73,12 +73,12 @@ export default async function ReportsPage() {
     { label: 'Citas próximas', value: appointmentsUpcoming, href: '/appointments' },
     { label: 'Chats sin leer', value: unreadConversations, href: '/whatsapp' },
     { label: 'Mensajes pendientes', value: pendingScheduledMessages, href: '/workflows' },
-    { label: 'Contactos CRM', value: contacts, href: '/crm' },
+    { label: 'Contactos GTL OS', value: contacts, href: '/crm' },
   ]
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8">
-      <h1 className="text-2xl font-bold text-gray-900">Reportes CRM</h1>
+      <h1 className="text-2xl font-bold text-gray-900">Reportes GTL OS</h1>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="text-3xl font-bold text-gray-900">{total}</div>

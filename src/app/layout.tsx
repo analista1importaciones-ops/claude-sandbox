@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'GTL Rate Manager',
-  description: 'Sistema de gestión de tarifas - Global Trade Logistics S.A.S.',
+  title: 'GTL OS',
+  description: 'Sistema operativo de Global Trade Logistics S.A.S.',
 }
 
 export default function RootLayout({

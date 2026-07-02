@@ -767,7 +767,7 @@ export default function WhatsAppPage() {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <button onClick={() => setMobileView('chat')} className="md:hidden rounded-full border border-gray-200 px-2 py-1 text-xs text-gray-600">Chat</button>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contacto CRM</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contacto GTL OS</p>
               </div>
               {!editingContact && (
                 <button onClick={() => openContactEdit(linkedContact)} className="text-xs text-blue-500 hover:text-blue-700">
@@ -804,7 +804,7 @@ export default function WhatsAppPage() {
                 <p className="text-sm font-medium text-gray-800">{linkedContact.name}</p>
                 {linkedContact.company && <p className="text-xs text-gray-500">{linkedContact.company}</p>}
                 <a href={`/crm/contacts/${linkedContact.id}`} className="inline-flex mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium">
-                  Ver en CRM
+                  Ver en GTL OS
                 </a>
                 <div className="mt-2 rounded-md bg-white/70 border border-green-100 px-2 py-1.5">
                   <p className="text-[10px] uppercase tracking-wide text-gray-400">{selectedPhone ? 'Número WhatsApp' : 'ID WhatsApp'}</p>

@@ -71,7 +71,7 @@ export default function AppointmentsPage() {
     const res = await fetch(`/api/appointments/${appointment.id}`, { method: 'DELETE' })
     const data = await res.json().catch(() => null)
     if (!res.ok) { setNotice(data?.error || 'No se pudo eliminar la cita.'); return }
-    setNotice(data.googleWarning ? `Cita eliminada del CRM. Google: ${data.googleWarning}` : 'Cita eliminada también de Google Calendar.')
+    setNotice(data.googleWarning ? `Cita eliminada de GTL OS. Google: ${data.googleWarning}` : 'Cita eliminada también de Google Calendar.')
     load()
   }
 
