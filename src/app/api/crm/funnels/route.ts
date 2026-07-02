@@ -7,6 +7,11 @@ export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const funnels = await ensureDefaultFunnels()
-  return NextResponse.json(funnels)
+  try {
+    const funnels = await ensureDefaultFunnels()
+    return NextResponse.json(funnels)
+  } catch (error) {
+    console.error('[Funnels] No se pudieron cargar los embudos:', error)
+    return NextResponse.json({ error: 'No se pudieron cargar los embudos.' }, { status: 500 })
+  }
 }

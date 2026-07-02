@@ -46,9 +46,11 @@ export async function ensureDefaultFunnels() {
   })
 
   for (const config of DEFAULT_FUNNELS) {
-    const funnel = existing.find(item =>
-      [config.name, ...config.aliases].some(alias => normalizeServiceText(alias) === normalizeServiceText(item.name))
-    ) ?? await prisma.funnel.create({
+    const funnel = existing.find(item => item.id === config.id)
+      ?? existing.find(item =>
+        [config.name, ...config.aliases].some(alias => normalizeServiceText(alias) === normalizeServiceText(item.name))
+      )
+      ?? await prisma.funnel.create({
       data: { id: config.id, name: config.name },
       include: { stages: true },
     })

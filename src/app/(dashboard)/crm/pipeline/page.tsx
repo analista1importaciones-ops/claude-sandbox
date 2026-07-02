@@ -53,8 +53,13 @@ export default function PipelinePage() {
 
   async function loadFunnels() {
     const res = await fetch('/api/crm/funnels')
-    if (!res.ok) return
-    const data = await res.json()
+    const data = await res.json().catch(() => null)
+    if (!res.ok || !Array.isArray(data)) {
+      setPipelineNotice(data?.error || 'No se pudieron cargar los embudos. Intenta nuevamente.')
+      setLoading(false)
+      return
+    }
+    setPipelineNotice('')
     setFunnels(data)
     setActiveFunnelId(current => current || data.find((funnel: Funnel) => funnel.name === 'CARGAS')?.id || data[0]?.id || '')
   }
