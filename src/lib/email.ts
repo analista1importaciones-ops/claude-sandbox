@@ -84,8 +84,8 @@ export async function sendAppointmentEmail(params: {
 }) {
   if (!RESEND_API_KEY) return
 
-  const start = params.startAt.toLocaleString('es-GT', { dateStyle: 'full', timeStyle: 'short' })
-  const end = params.endAt.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })
+  const start = params.startAt.toLocaleString('es-EC', { dateStyle: 'full', timeStyle: 'short', timeZone: 'America/Guayaquil' })
+  const end = params.endAt.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Guayaquil' })
   const greeting = params.internal ? 'Nueva cita agendada' : `Hola${params.contactName ? ` ${params.contactName}` : ''}`
 
   const html = `

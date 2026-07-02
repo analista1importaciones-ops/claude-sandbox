@@ -17,10 +17,9 @@ export default async function DashboardPage() {
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  const startOfDay = new Date(now)
-  startOfDay.setHours(0, 0, 0, 0)
-  const endOfDay = new Date(now)
-  endOfDay.setHours(23, 59, 59, 999)
+  const ecuadorNow = new Date(now.getTime() - 5 * 60 * 60 * 1000)
+  const startOfDay = new Date(Date.UTC(ecuadorNow.getUTCFullYear(), ecuadorNow.getUTCMonth(), ecuadorNow.getUTCDate(), 5, 0, 0, 0))
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000 - 1)
 
   const [
     active,
@@ -30,6 +29,8 @@ export default async function DashboardPage() {
     openDeals,
     followUpDeals,
     appointmentsToday,
+    upcomingAppointments,
+    unnotifiedAppointments,
     pendingClientTasks,
     dueClientTasks,
     upcomingClientTasks,
@@ -46,6 +47,8 @@ export default async function DashboardPage() {
     prisma.deal.count({ where: { stage: { notIn: ['CERRADO_GANADO', 'PERDIDO'] } } }),
     prisma.deal.count({ where: { stage: 'SEGUIMIENTO' } }),
     prisma.appointment.count({ where: { startAt: { gte: startOfDay, lte: endOfDay } } }),
+    prisma.appointment.count({ where: { startAt: { gte: now, lte: sevenDaysFromNow } } }),
+    prisma.appointment.count({ where: { startAt: { gte: now }, notified: false } }),
     prisma.activity.count({ where: { type: 'TAREA', completedAt: null } }),
     prisma.activity.count({ where: { type: 'TAREA', completedAt: null, dueAt: { lte: endOfDay } } }),
     prisma.activity.findMany({
@@ -81,6 +84,8 @@ export default async function DashboardPage() {
   const pendingCards = [
     { label: 'Chats sin leer', value: unreadConversations, href: '/whatsapp', tone: 'text-green-700 bg-green-50 border-green-200' },
     { label: 'Citas de hoy', value: appointmentsToday, href: '/appointments', tone: 'text-blue-700 bg-blue-50 border-blue-200' },
+    { label: 'Próximas citas', value: upcomingAppointments, href: '/appointments', tone: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
+    { label: 'Citas sin notificar', value: unnotifiedAppointments, href: '/appointments', tone: 'text-amber-700 bg-amber-50 border-amber-200' },
     { label: 'Tareas por atender', value: dueClientTasks, href: '/crm', tone: 'text-red-700 bg-red-50 border-red-200' },
     { label: 'Mensajes pendientes', value: pendingScheduledMessages, href: '/workflows', tone: 'text-orange-700 bg-orange-50 border-orange-200' },
     { label: 'Deals en seguimiento', value: followUpDeals, href: '/crm/pipeline', tone: 'text-indigo-700 bg-indigo-50 border-indigo-200' },

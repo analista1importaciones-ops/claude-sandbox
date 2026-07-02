@@ -15,7 +15,7 @@ export default function AppointmentsPage() {
   useEffect(() => { fetch('/api/appointments').then(r => r.json()).then(d => { setAppointments(d); setLoading(false) }) }, [])
   const upcoming = appointments.filter(a => new Date(a.startAt) >= new Date())
   const past = appointments.filter(a => new Date(a.startAt) < new Date())
-  const fmt = (dt: string) => new Date(dt).toLocaleString('es-GT', { dateStyle: 'medium', timeStyle: 'short' })
+  const fmt = (dt: string) => new Date(dt).toLocaleString('es-EC', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Guayaquil' })
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Citas</h1>
@@ -49,7 +49,7 @@ function Card({ apt, fmt, upcoming }: { apt: Appointment; fmt: (s: string) => st
           </div>
           <div className="text-right flex-shrink-0">
             <p className="text-sm font-medium text-gray-700">{fmt(apt.startAt)}</p>
-            <p className="text-xs text-gray-400">hasta {new Date(apt.endAt).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}</p>
+            <p className="text-xs text-gray-400">hasta {new Date(apt.endAt).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Guayaquil' })}</p>
           </div>
         </div>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">

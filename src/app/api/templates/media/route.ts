@@ -5,7 +5,7 @@ import { ensureWAMediaDir } from '@/lib/wa-media'
 import fs from 'fs'
 import path from 'path'
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024
+const MAX_FILE_SIZE = 64 * 1024 * 1024
 
 function mediaKind(mime: string) {
   if (mime.startsWith('image/')) return 'image'
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Selecciona un archivo' }, { status: 400 })
   }
   if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json({ error: 'El archivo supera el limite de 25 MB' }, { status: 400 })
+    return NextResponse.json({ error: 'El archivo supera el límite de 64 MB' }, { status: 400 })
   }
 
   const originalName = file.name || 'archivo'

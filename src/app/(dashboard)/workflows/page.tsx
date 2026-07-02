@@ -190,31 +190,36 @@ export default function WorkflowsPage() {
   const saveTemplate = async () => {
     if (!tplName || !tplBody) return
     setSaving(true)
-    let media = tplMedia
-    if (tplFile) {
-      const form = new FormData()
-      form.append('file', tplFile)
-      const upload = await fetch('/api/templates/media', { method: 'POST', body: form })
-      if (!upload.ok) {
-        setSaving(false)
-        setNotice((await upload.json()).error || 'No se pudo subir el archivo.')
-        return
+    try {
+      let media = tplMedia
+      if (tplFile) {
+        if (tplFile.size > 64 * 1024 * 1024) throw new Error('El video supera el límite de 64 MB.')
+        const form = new FormData()
+        form.append('file', tplFile)
+        const upload = await fetch('/api/templates/media', { method: 'POST', body: form })
+        const uploadData = await upload.json().catch(() => null)
+        if (!upload.ok) {
+          throw new Error(upload.status === 413
+            ? 'El servidor rechazó el video por tamaño. Debe habilitarse 64 MB en Nginx.'
+            : uploadData?.error || 'No se pudo subir el archivo.')
+        }
+        media = uploadData
       }
-      media = await upload.json()
+      const response = await fetch(editingTemplateId ? `/api/templates/${editingTemplateId}` : '/api/templates', {
+        method: editingTemplateId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tplName, body: tplBody, ...media }),
+      })
+      const responseData = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(responseData?.error || 'No se pudo guardar la plantilla.')
+      closeTemplateForm()
+      setNotice('Plantilla y adjunto guardados correctamente. El workflow enviará ambos.')
+      load()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'No se pudo guardar la plantilla.')
+    } finally {
+      setSaving(false)
     }
-    const response = await fetch(editingTemplateId ? `/api/templates/${editingTemplateId}` : '/api/templates', {
-      method: editingTemplateId ? 'PATCH' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: tplName, body: tplBody, ...media }),
-    })
-    setSaving(false)
-    if (!response.ok) {
-      setNotice('No se pudo guardar la plantilla.')
-      return
-    }
-    closeTemplateForm()
-    setNotice('Plantilla guardada correctamente.')
-    load()
   }
 
   const closeTemplateForm = () => {
@@ -632,7 +637,15 @@ export default function WorkflowsPage() {
                 <input
                   type="file"
                   accept="image/*,audio/*,video/*,.pdf"
-                  onChange={event => setTplFile(event.target.files?.[0] || null)}
+                  onChange={event => {
+                    const file = event.target.files?.[0] || null
+                    if (file && file.size > 64 * 1024 * 1024) {
+                      setNotice('El video supera el límite de 64 MB.')
+                      event.target.value = ''
+                      return
+                    }
+                    setTplFile(file)
+                  }}
                   className="block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-blue-700"
                 />
                 {(tplFile || tplMedia.mediaUrl) && (
@@ -641,7 +654,7 @@ export default function WorkflowsPage() {
                     <button onClick={() => { setTplFile(null); setTplMedia({}) }} className="text-red-500">Quitar</button>
                   </div>
                 )}
-                <p className="mt-1 text-xs text-gray-400">Imagen, audio, video o PDF. Máximo 25 MB.</p>
+                <p className="mt-1 text-xs text-gray-400">Imagen, audio, video o PDF. Máximo 64 MB.</p>
               </div>
               <div className="flex flex-wrap gap-2 justify-end">
                 <button onClick={closeTemplateForm} className="px-4 py-2 text-sm text-gray-500">Cancelar</button>

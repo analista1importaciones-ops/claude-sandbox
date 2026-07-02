@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   })
   let notified = false
   if (shouldNotifyClient && remoteJid) {
-    const fecha = startDate.toLocaleString('es-GT', { dateStyle: 'full', timeStyle: 'short' })
+    const fecha = startDate.toLocaleString('es-EC', { dateStyle: 'full', timeStyle: 'short', timeZone: 'America/Guayaquil' })
     const msg = `📅 Hola${contact ? ` ${contact.name}` : ''}, te confirmamos tu cita: *${title}* el ${fecha}.`
     try {
       const jid = await sendWAMessage(remoteJid, msg)
