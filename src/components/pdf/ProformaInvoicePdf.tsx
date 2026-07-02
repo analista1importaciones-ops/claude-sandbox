@@ -100,7 +100,10 @@ const modeLabel: Record<string, string> = {
   LCL: 'LCL (Carga Consolidada)', FCL20: 'FCL 20GP', FCL40: 'FCL 40GP', FCL40HC: 'FCL 40HQ', AIR: 'Aéreo',
 }
 
-function fmt(n: number) { return `$${n.toFixed(2)}` }
+function fmt(value: number | string | null | undefined) {
+  const amount = Number(value ?? 0)
+  return `$${(Number.isFinite(amount) ? amount : 0).toFixed(2)}`
+}
 
 function ChargesBlock({ blockTitle, items, subtotalLabel, subtotal }: {
   blockTitle: string; items: LineItem[]; subtotalLabel: string; subtotal: number
