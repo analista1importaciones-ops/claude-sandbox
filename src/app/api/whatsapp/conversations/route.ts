@@ -39,13 +39,21 @@ export async function GET() {
       }
     }
 
+    const canonicalJidByContact = new Map<string, string>()
+    for (const m of all) {
+      if (isBlockedJid(m.remoteJid) || !m.contactId || m.fromMe) continue
+      if (!canonicalJidByContact.has(m.contactId)) canonicalJidByContact.set(m.contactId, m.remoteJid)
+    }
+
     const seen = new Set()
     const conversations = []
     for (const m of all) {
       if (isBlockedJid(m.remoteJid) || isBlockedJid(m.phoneJid)) continue
-      if (!seen.has(m.remoteJid)) {
-        seen.add(m.remoteJid)
-        const conv = convMap.get(m.remoteJid)
+      const canonicalJid = m.contactId ? canonicalJidByContact.get(m.contactId) ?? m.remoteJid : m.remoteJid
+      const conversationKey = m.contactId ? `contact:${m.contactId}` : m.phoneJid ? `phone:${m.phoneJid}` : `jid:${m.remoteJid}`
+      if (!seen.has(conversationKey)) {
+        seen.add(conversationKey)
+        const conv = convMap.get(canonicalJid) ?? convMap.get(m.remoteJid)
         let contact = contactByJid.get(m.remoteJid) ?? m.contact
         const phoneJid = m.phoneJid ?? conv?.phoneJid ?? (m.remoteJid.endsWith('@s.whatsapp.net') ? m.remoteJid : null)
         if (!contact && phoneJid) {
@@ -55,9 +63,10 @@ export async function GET() {
         }
         conversations.push({
           ...m,
+          remoteJid: canonicalJid,
           phoneJid,
           contact,
-          waName: waNameByJid.get(m.remoteJid) ?? (!m.fromMe ? m.waName : null),
+          waName: waNameByJid.get(canonicalJid) ?? waNameByJid.get(m.remoteJid) ?? (!m.fromMe ? m.waName : null),
           unreadCount: conv?.unreadCount ?? 0,
           convStatus: conv?.status ?? 'OPEN',
         })

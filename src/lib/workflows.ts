@@ -111,18 +111,29 @@ function getWhatsAppJid(phone: string) {
 }
 
 async function resolveWhatsAppJid(contact: WorkflowContact) {
-  if (contact.phone) return getWhatsAppJid(contact.phone)
-
   const message = await prisma.whatsAppMessage.findFirst({
     where: {
       contactId: contact.id,
+      fromMe: false,
       NOT: { remoteJid: { endsWith: '@g.us' } },
     },
     orderBy: { timestamp: 'desc' },
     select: { remoteJid: true, phoneJid: true },
   })
 
-  return message?.phoneJid || message?.remoteJid || null
+  if (message?.remoteJid) return message.remoteJid
+
+  const previousMessage = await prisma.whatsAppMessage.findFirst({
+    where: {
+      contactId: contact.id,
+      NOT: { remoteJid: { endsWith: '@g.us' } },
+    },
+    orderBy: { timestamp: 'desc' },
+    select: { remoteJid: true },
+  })
+
+  if (previousMessage?.remoteJid) return previousMessage.remoteJid
+  return contact.phone ? getWhatsAppJid(contact.phone) : null
 }
 
 function stepDelayMinutes(step: WorkflowStepWithTemplate) {

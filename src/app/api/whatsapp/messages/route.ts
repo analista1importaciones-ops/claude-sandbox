@@ -13,10 +13,20 @@ export async function GET(req: NextRequest) {
     const jid = searchParams.get('jid')
     if (jid?.endsWith('@g.us')) return NextResponse.json([])
 
+    const relatedMessage = !contactId && jid
+      ? await prisma.whatsAppMessage.findFirst({
+        where: { OR: [{ remoteJid: jid }, { phoneJid: jid }] },
+        orderBy: { timestamp: 'desc' },
+        select: { contactId: true },
+      })
+      : null
+    const resolvedContactId = contactId || relatedMessage?.contactId
+
     const messages = await prisma.whatsAppMessage.findMany({
       where: {
-        ...(contactId ? { contactId } : {}),
-        ...(jid ? { OR: [{ remoteJid: jid }, { phoneJid: jid }] } : {}),
+        ...(resolvedContactId
+          ? { OR: [{ contactId: resolvedContactId }, ...(jid ? [{ remoteJid: jid }, { phoneJid: jid }] : [])] }
+          : jid ? { OR: [{ remoteJid: jid }, { phoneJid: jid }] } : {}),
       },
       orderBy: { timestamp: 'desc' },
       take: 100,
